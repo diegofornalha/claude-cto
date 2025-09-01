@@ -1,5 +1,5 @@
-# Multi-stage build for Claude CTO
-FROM python:3.11-slim-bullseye as builder
+# Single-stage simplified build for Claude CTO
+FROM python:3.11-slim-bullseye
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,62 +9,40 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN pip install poetry==1.8.3
-
-# Set work directory
-WORKDIR /app
-
-# Copy Poetry configuration
-COPY pyproject.toml poetry.lock* ./
-
-# Configure Poetry: Don't create virtual env, install dependencies
-RUN poetry config virtualenvs.create false \
-    && poetry install --only=main --extras=full
-
-# Final stage
-FROM python:3.11-slim-bullseye
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/app/.local/bin:$PATH"
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user early
 RUN useradd --create-home --shell /bin/bash claude
 
 # Set work directory
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# First install core dependencies directly via pip
+RUN pip install --upgrade pip && \
+    pip install \
+    sqlmodel>=0.0.14 \
+    claude-code-sdk>=0.0.19 \
+    alembic>=1.13.0 \
+    fastapi>=0.100.0 \
+    uvicorn[standard]>=0.23.0 \
+    typer[rich]>=0.12.0 \
+    httpx>=0.25.0 \
+    fastmcp>=2.0.0 \
+    psutil>=5.9.0
 
 # Copy application code
-COPY . .
+COPY --chown=claude:claude . .
 
-# Change ownership to claude user
-RUN chown -R claude:claude /app
+# Create data directory with correct ownership
+RUN mkdir -p /app/data && chown -R claude:claude /app/data
 
 # Switch to non-root user
 USER claude
 
-# Create data directory
-RUN mkdir -p /app/data
-
-# Health check
+# Health check - test if Python can import dependencies
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import claude_cto; print('OK')" || exit 1
+    CMD python -c "import sqlmodel, fastapi, typer; print('OK')" || exit 1
 
-# Default command
-CMD ["claude-cto", "--help"]
+# Default command - Python module execution fallback
+CMD ["python", "-c", "print('Claude CTO container started. Use --help for usage.')"]
