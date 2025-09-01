@@ -59,7 +59,7 @@ def create_standalone_server(db_path: Optional[str] = None, log_dir: Optional[st
         execution_prompt: str,
         working_directory: str = ".",
         system_prompt: Optional[str] = None,
-        model: str = "sonnet",
+        model: str = "opus",
     ) -> Dict[str, Any]:
         """
         The most critical tool in your toolkit — use it to delegate tasks to skilled developers for
@@ -84,7 +84,7 @@ def create_standalone_server(db_path: Optional[str] = None, log_dir: Optional[st
             execution_prompt: Detailed task description (min 150 chars, must include file paths)
             working_directory: Directory to execute the task in
             system_prompt: Optional system prompt (auto-adds minimalist focus if empty)
-            model: Claude model selection - 'sonnet' (default, balanced for most tasks), 'opus' (highest intelligence for complex planning/architecture), 'haiku' (fastest for simple repetitive tasks)
+            model: Claude model selection - 'opus' (default, highest intelligence for complex planning/architecture), 'sonnet' (balanced for most tasks), 'haiku' (fastest for simple repetitive tasks)
 
         Returns:
             Task information with ID and status for monitoring

@@ -36,7 +36,7 @@ def create_proxy_server(api_url: Optional[str] = None) -> FastMCP:
         execution_prompt: str,
         working_directory: str = ".",
         system_prompt: Optional[str] = None,
-        model: str = "sonnet",
+        model: str = "opus",
     ) -> Dict[str, Any]:
         """
         The most critical tool in your toolkit — use it to delegate tasks to skilled developers for

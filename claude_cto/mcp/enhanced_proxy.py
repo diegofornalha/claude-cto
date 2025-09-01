@@ -79,7 +79,7 @@ def create_enhanced_proxy_server(api_url: Optional[str] = None) -> FastMCP:
         execution_prompt: str,
         working_directory: str = ".",
         system_prompt: Optional[str] = None,
-        model: str = "sonnet",
+        model: str = "opus",
         depends_on: Optional[List[str]] = None,  # Optional task identifiers to wait for
         wait_after_dependencies: Optional[float] = None,  # Optional delay in seconds after deps complete
         orchestration_group: Optional[str] = None,  # Optional group identifier for related tasks
@@ -131,7 +131,7 @@ def create_enhanced_proxy_server(api_url: Optional[str] = None) -> FastMCP:
             execution_prompt: Detailed task description (min 150 chars, must include file paths)
             working_directory: Directory to execute the task in
             system_prompt: Optional system prompt (auto-adds Carmack principles if empty)
-            model: 'sonnet' (balanced), 'opus' (complex), 'haiku' (simple/fast)
+            model: 'opus' (complex/default), 'sonnet' (balanced), 'haiku' (simple/fast)
             depends_on: Optional list of task_identifier strings to wait for
             wait_after_dependencies: Optional seconds to wait after dependencies complete
             orchestration_group: Optional group name to associate related tasks
