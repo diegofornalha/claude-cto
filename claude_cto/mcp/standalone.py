@@ -22,7 +22,7 @@ from claude_cto.server.models import TaskCreate, TaskStatus
 
 
 # Process pool for task execution (module level for pickling)
-executor_pool = ProcessPoolExecutor(max_workers=2)
+executor_pool = ProcessPoolExecutor(max_workers=20)
 
 
 def create_standalone_server(db_path: Optional[str] = None, log_dir: Optional[str] = None) -> FastMCP:

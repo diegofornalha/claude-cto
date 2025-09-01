@@ -216,3 +216,5 @@ yarn-error.log*
 .npm
 .node_repl_history
 .cache/
+master_dashboard-5508/.next/*
+.next/*

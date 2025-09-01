@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Activity, 
-  BarChart3, 
-  Settings, 
-  Users, 
   Zap, 
-  TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle,
-  Server
+  AlertCircle
 } from 'lucide-react'
+
+// Lazy loading dos componentes
+const MetricCard = lazy(() => import('@/components/MetricCard'))
+const SystemHealth = lazy(() => import('@/components/SystemHealth'))
+const QuickActions = lazy(() => import('@/components/QuickActions'))
 
 interface TaskMetrics {
   total: number
@@ -76,27 +76,16 @@ export default function DashboardMaster() {
     visible: { opacity: 1, y: 0 }
   }
 
-  const MetricCard = ({ title, value, icon: Icon, color, change }: any) => (
-    <motion.div
-      variants={cardVariants}
-      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300`}
-    >
+  const LoadingCard = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 animate-pulse">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-          {change && (
-            <p className={`text-sm ${change > 0 ? 'text-green-600' : 'text-red-600'} flex items-center`}>
-              <TrendingUp className="w-4 h-4 mr-1" />
-              {change > 0 ? '+' : ''}{change}%
-            </p>
-          )}
+        <div className="flex-1">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
         </div>
-        <div className={`p-3 rounded-full ${color}`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
+        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
       </div>
-    </motion.div>
+    </div>
   )
 
   return (
@@ -167,145 +156,74 @@ export default function DashboardMaster() {
           }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
-          <MetricCard
-            title="Total de Tasks"
-            value={taskMetrics.total}
-            icon={Activity}
-            color="bg-gradient-to-r from-blue-500 to-blue-600"
-            change={12}
-          />
-          <MetricCard
-            title="Completadas"
-            value={taskMetrics.completed}
-            icon={CheckCircle}
-            color="bg-gradient-to-r from-green-500 to-green-600"
-            change={8}
-          />
-          <MetricCard
-            title="Em Execução"
-            value={taskMetrics.running}
-            icon={Clock}
-            color="bg-gradient-to-r from-yellow-500 to-orange-500"
-          />
-          <MetricCard
-            title="Falhas"
-            value={taskMetrics.failed}
-            icon={AlertCircle}
-            color="bg-gradient-to-r from-red-500 to-red-600"
-            change={-25}
-          />
+          <Suspense fallback={<LoadingCard />}>
+            <MetricCard
+              title="Total de Tasks"
+              value={taskMetrics.total}
+              icon={Activity}
+              color="bg-gradient-to-r from-blue-500 to-blue-600"
+              change={12}
+            />
+          </Suspense>
+          <Suspense fallback={<LoadingCard />}>
+            <MetricCard
+              title="Completadas"
+              value={taskMetrics.completed}
+              icon={CheckCircle}
+              color="bg-gradient-to-r from-green-500 to-green-600"
+              change={8}
+            />
+          </Suspense>
+          <Suspense fallback={<LoadingCard />}>
+            <MetricCard
+              title="Em Execução"
+              value={taskMetrics.running}
+              icon={Clock}
+              color="bg-gradient-to-r from-yellow-500 to-orange-500"
+            />
+          </Suspense>
+          <Suspense fallback={<LoadingCard />}>
+            <MetricCard
+              title="Falhas"
+              value={taskMetrics.failed}
+              icon={AlertCircle}
+              color="bg-gradient-to-r from-red-500 to-red-600"
+              change={-25}
+            />
+          </Suspense>
         </motion.div>
 
         {/* System Health */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 mb-8"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-              <Server className="w-5 h-5 mr-2" />
-              Saúde do Sistema
-            </h3>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              systemHealth.status === 'healthy' 
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-            }`}>
-              {systemHealth.status === 'healthy' ? 'Saudável' : 'Atenção'}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">CPU</p>
-              <div className="flex items-center">
-                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-3">
-                  <motion.div 
-                    className="bg-blue-500 h-2 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${systemHealth.cpu}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                  />
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{systemHealth.cpu}%</span>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Memória</p>
-              <div className="flex items-center">
-                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-3">
-                  <motion.div 
-                    className="bg-green-500 h-2 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${systemHealth.memory}%` }}
-                    transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                  />
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{systemHealth.memory}%</span>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Uptime</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">{systemHealth.uptime}</p>
+        <Suspense fallback={
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 mb-8 animate-pulse">
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
             </div>
           </div>
-        </motion.div>
+        }>
+          <SystemHealth data={systemHealth} />
+        </Suspense>
 
         {/* Quick Actions */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={{
-            visible: { transition: { staggerChildren: 0.1 } }
-          }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
-        >
-          <motion.div variants={cardVariants}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
-                  <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <Suspense fallback={
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 animate-pulse">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="ml-3 h-6 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                 </div>
-                <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">Analytics</h3>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Visualize métricas e insights detalhados do sistema
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.div variants={cardVariants}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors">
-                  <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">Task Manager</h3>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Gerencie e monitore todas as tasks em execução
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.div variants={cardVariants}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
-                  <Settings className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">Configurações</h3>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Configure o sistema e gerencie integrações
-              </p>
-            </div>
-          </motion.div>
-        </motion.div>
+            ))}
+          </div>
+        }>
+          <QuickActions />
+        </Suspense>
 
         {/* Status Banner */}
         <motion.div

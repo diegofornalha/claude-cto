@@ -22,8 +22,6 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.45",
     "lucide-react": "^0.445.0",
-    "recharts": "^2.12.7",
-    "zustand": "^4.5.5",
     "@tanstack/react-query": "^5.56.2",
     "framer-motion": "^11.5.4",
     "react-hot-toast": "^2.4.1"
