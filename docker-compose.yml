@@ -1,0 +1,59 @@
+services:
+  claude-cto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-cto-server
+    environment:
+      - CLAUDE_CTO_API_KEY=${CLAUDE_CTO_API_KEY}
+      - CLAUDE_CTO_API_URL=${CLAUDE_CTO_API_URL:-http://localhost:8080}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ./claude_cto:/app/claude_cto
+      - ./scripts:/app/scripts
+      - ./examples:/app/examples
+      - ./docs:/app/docs
+    working_dir: /app
+    command: ["python", "-m", "claude_cto"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - claude-network
+
+  monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-cto-monitor
+    environment:
+      - CLAUDE_CTO_API_KEY=${CLAUDE_CTO_API_KEY}
+      - CLAUDE_CTO_API_URL=http://claude-cto:8080
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./monitor_infinito.py:/app/monitor_infinito.py
+      - ./monitor_infinito_estado.json:/app/monitor_infinito_estado.json
+      - ./logs:/app/logs
+    working_dir: /app
+    command: ["python", "monitor_infinito.py"]
+    depends_on:
+      - claude-cto
+    restart: unless-stopped
+    networks:
+      - claude-network
+
+networks:
+  claude-network:
+    driver: bridge
+
+volumes:
+  claude-cto-data:
+    driver: local
