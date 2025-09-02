@@ -1,5 +1,4 @@
-import React, { SelectHTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
+import React, { SelectHTMLAttributes, forwardRef, useMemo } from 'react';
 
 export interface SelectOption {
   value: string;
@@ -33,7 +32,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     value,
     ...props 
   }, ref) => {
-    const selectId = id || `select-${Math.random().toString(36).substring(7)}`;
+    const selectId = useMemo(() => 
+        id || `select-default`,
+        [id]
+    );
     
     const sizeStyles = {
       sm: 'px-3 py-1.5 text-sm',

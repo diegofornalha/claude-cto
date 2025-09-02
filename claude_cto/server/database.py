@@ -45,6 +45,9 @@ engine = create_engine(
 
 def create_db_and_tables():
     """Initialize database schema with migrations. Called once at server startup."""
+    # Import models to ensure they are registered with SQLModel metadata
+    from . import models
+    
     # Run migrations first to ensure schema is up to date
     try:
         run_migrations(f"sqlite:///{db_path}")

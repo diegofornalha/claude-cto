@@ -1,5 +1,4 @@
 import React, { HTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: 'default' | 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info';

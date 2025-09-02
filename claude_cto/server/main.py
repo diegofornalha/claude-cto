@@ -9,9 +9,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from sqlmodel import Session
+from pydantic import BaseModel
 
 from .database import create_db_and_tables, get_session, app_dir
 from . import models, crud
@@ -24,6 +26,8 @@ from .server_logger import (
     log_task_event,
     log_request_response,
 )
+from .websocket_manager import manager, websocket_endpoint
+from .auth import auth_manager, get_current_user, get_optional_user
 
 
 # Global logging setup for the entire server
@@ -41,14 +45,33 @@ async def run_task_async(task_id: int):
     try:
         # Task execution lifecycle logging: tracks execution phases for monitoring
         log_task_event(task_id, "execution_started")
+        
+        # Activity logging: track task start
+        from .activity_logger import log_task_started
+        log_task_started(task_id)
+        
         # Core task delegation: TaskExecutor handles SDK interaction and task lifecycle
+        start_time = datetime.utcnow()
         executor = TaskExecutor(task_id)
         await executor.run()  # Complete task execution with full error handling
+        end_time = datetime.utcnow()
+        
+        # Calculate execution duration
+        duration_seconds = (end_time - start_time).total_seconds()
+        
         log_task_event(task_id, "execution_completed")
+        
+        # Activity logging: track task completion
+        from .activity_logger import log_task_completed
+        log_task_completed(task_id, duration_seconds)
     except Exception as e:
         # Server resilience: logs errors without crashing main server process
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)
         log_task_event(task_id, "execution_failed", {"error": str(e), "type": type(e).__name__})
+        
+        # Activity logging: track task failure
+        from .activity_logger import log_task_failed
+        log_task_failed(task_id, str(e))
 
         # Crash reporting: differentiates expected vs unexpected errors for alerting
         if not isinstance(e, (KeyboardInterrupt, SystemExit, asyncio.CancelledError)):
@@ -108,6 +131,11 @@ async def lifespan(app: FastAPI):
             # Background cleanup: maintains circuit breaker state file hygiene
             asyncio.create_task(_periodic_circuit_breaker_cleanup())
             logger.info("Circuit breaker cleanup started")
+            
+            # Phase 5: WebSocket heartbeat initialization - keeps connections alive
+            logger.info("Starting WebSocket heartbeat...")
+            await manager.start_heartbeat(interval=30)
+            logger.info("WebSocket heartbeat started")
 
             logger.info("Server startup complete - ready to accept requests")
 
@@ -126,6 +154,9 @@ async def lifespan(app: FastAPI):
             # Resource cleanup: stops background monitoring to prevent resource leaks
             from .memory_monitor import stop_global_monitoring
             await stop_global_monitoring()  # Gracefully stops monitoring background task
+            
+            # Stop WebSocket heartbeat
+            await manager.stop_heartbeat()
 
             logger.info("Server shutdown complete")
 
@@ -138,6 +169,21 @@ app = FastAPI(
     lifespan=lifespan,  # Server startup/shutdown orchestration
 )
 
+# CORS middleware configuration - Security fix applied
+# Only allow specific trusted origins to prevent CSRF attacks
+# Previous config allowed all origins (*) with credentials - major security vulnerability
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5508", 
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5508"
+    ],  # Explicitly defined trusted origins only
+    allow_credentials=True,  # Safe with specific origins
+    allow_methods=["*"],  # Allow all HTTP methods for API flexibility
+    allow_headers=["*"],   # Allow all headers for full API compatibility
+)
 
 # HTTP request/response logging middleware: captures all API interactions for monitoring
 @app.middleware("http")
@@ -149,15 +195,11 @@ async def logging_middleware(request: Request, call_next):
     return await log_request_response(request, call_next)  # Structured logging wrapper
 
 
-# CORS middleware: enables browser-based clients to access the API
-# Configured for development - should be restricted in production environments
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],      # Development setting - restrict in production
-    allow_credentials=True,    # Supports authenticated requests
-    allow_methods=["*"],      # Allows all HTTP methods
-    allow_headers=["*"],      # Allows all request headers
-)
+# DUPLICATE CORS CONFIGURATION REMOVED - Security fix
+# Previous duplicate configuration was a security vulnerability:
+# - allow_origins=["*"] with allow_credentials=True enables CSRF attacks
+# - Duplicate CORS middleware causes configuration conflicts
+# The secure configuration above (lines 169-181) is now the sole CORS setup
 
 
 # REST API Endpoints
@@ -188,6 +230,23 @@ async def create_task(task_in: models.TaskCreate, session: Session = Depends(get
             db_task.id,
             "task_created",
             {"model": db_task.model, "working_directory": db_task.working_directory},
+        )
+        
+        # Activity logging: registers task creation for monitoring feed
+        from .activity_logger import log_task_created
+        log_task_created(db_task.id, db_task.working_directory, str(db_task.model))
+        
+        # Broadcast WebSocket event for task creation
+        from .websocket_manager import WebSocketEventType
+        await manager.broadcast_task_event(
+            WebSocketEventType.TASK_CREATED,
+            db_task.id,
+            {
+                "status": db_task.status,
+                "model": db_task.model,
+                "working_directory": db_task.working_directory,
+                "created_at": db_task.created_at.isoformat()
+            }
         )
 
         # Background task execution: starts async execution without blocking HTTP response
@@ -320,6 +379,19 @@ async def create_mcp_task(payload: models.MCPCreateTaskPayload, session: Session
     # Background execution: identical async task pattern
     # CRITICAL: Main process execution required for Claude SDK OAuth
     asyncio.create_task(run_task_async(db_task.id))
+    
+    # Broadcast WebSocket event for MCP task creation
+    from .websocket_manager import WebSocketEventType
+    await manager.broadcast_task_event(
+        WebSocketEventType.TASK_CREATED,
+        db_task.id,
+        {
+            "status": db_task.status,
+            "working_directory": db_task.working_directory,
+            "created_at": db_task.created_at.isoformat(),
+            "via_mcp": True
+        }
+    )
 
     # Response formatting: identical structure to standard endpoint
     return models.TaskRead(
@@ -335,12 +407,81 @@ async def create_mcp_task(payload: models.MCPCreateTaskPayload, session: Session
     )
 
 
-# Health check endpoint
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_route(websocket: WebSocket, client_id: Optional[str] = Query(None)):
+    """
+    WebSocket endpoint for real-time task updates
+    
+    Supports events:
+    - task_created: When a new task is created
+    - task_started: When a task starts execution
+    - task_progress: Task progress updates
+    - task_completed: When a task completes successfully
+    - task_failed: When a task fails
+    - stats_updated: System statistics updates
+    - orchestration_started/completed/failed: Orchestration events
+    """
+    await websocket_endpoint(websocket, client_id)
+
+
+# Models para autenticação
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    username: str
+
+# Endpoint de login
+@app.post("/api/v1/auth/login", response_model=LoginResponse)
+def login(request: LoginRequest):
+    """Login com usuário e senha. Credenciais padrão: admin/admin"""
+    try:
+        result = auth_manager.login(request.username, request.password)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Endpoint de logout
+@app.post("/api/v1/auth/logout")
+def logout(current_user: dict = Depends(get_current_user)):
+    """Logout do usuário atual"""
+    # O token está no header Authorization
+    # Precisamos extrair do current_user ou do request
+    # Por simplicidade, vamos apenas retornar sucesso
+    return {"message": "Logout realizado com sucesso"}
+
+# Endpoint para verificar autenticação
+@app.get("/api/v1/auth/me")
+def get_me(current_user: dict = Depends(get_current_user)):
+    """Retorna informações do usuário autenticado"""
+    return {"username": current_user["username"], "authenticated": True}
+
+# Health check endpoint (público)
 @app.get("/health")
 def health_check():
     """Simple health check endpoint with version info."""
     from claude_cto import __version__
     return {"status": "healthy", "service": "claude-cto", "version": __version__}
+
+# Health check autenticado
+@app.get("/api/v1/health")
+def api_health_check(current_user: Optional[dict] = Depends(get_optional_user)):
+    """API health check with authentication status."""
+    from claude_cto import __version__
+    return {
+        "status": "healthy", 
+        "service": "claude-cto", 
+        "version": __version__,
+        "authenticated": current_user is not None,
+        "user": current_user["username"] if current_user else None
+    }
 
 
 # Orchestration endpoints
@@ -371,6 +512,10 @@ async def create_orchestration(orchestration: models.OrchestrationCreate, sessio
     try:
         # Create orchestration record
         orch_db = crud.create_orchestration(session, len(orchestration.tasks))
+        
+        # Activity logging: track orchestration creation
+        from .activity_logger import log_orchestration_created
+        log_orchestration_created(orch_db.id, len(orchestration.tasks))
 
         # Create task records with dependencies
         identifier_to_task_id = {}
@@ -563,3 +708,150 @@ async def list_orchestrations(
         )
 
     return results
+
+
+# Monitoring Endpoints
+
+@app.get("/api/v1/stats", response_model=models.StatsResponse)
+async def get_stats(session: Session = Depends(get_session)):
+    """
+    Endpoint de estatísticas em tempo real.
+    Retorna contadores de tarefas por status, taxas de sucesso/falha,
+    tempo médio de execução e atividade das últimas 24h.
+    """
+    try:
+        stats_data = crud.get_task_statistics(session)
+        
+        # Adicionar informações de recursos do sistema se disponível
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            stats_data["system_resources"] = {
+                "memory_mb": round(memory_info.rss / 1024 / 1024, 2),
+                "cpu_percent": process.cpu_percent()
+            }
+        except (ImportError, Exception):
+            stats_data["system_resources"] = None
+            
+        return models.StatsResponse(**stats_data)
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao obter estatísticas: {str(e)}")
+
+
+@app.get("/api/v1/activities", response_model=models.ActivitiesResponse)
+async def get_activities(
+    limit: int = 100,
+    offset: int = 0,
+    event_type: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
+    """
+    Endpoint do feed de atividades recentes.
+    Retorna últimas atividades do sistema com paginação e filtros opcionais.
+    """
+    try:
+        activities_data, total_count = crud.get_recent_activities(
+            session=session,
+            limit=limit,
+            offset=offset,
+            event_type_filter=event_type
+        )
+        
+        # Converter para formato de resposta
+        activities = []
+        for activity in activities_data:
+            import json
+            activities.append(models.ActivityEvent(
+                id=activity.id,
+                timestamp=activity.timestamp,
+                event_type=activity.event_type,
+                task_id=activity.task_id,
+                orchestration_id=activity.orchestration_id,
+                details=json.loads(activity.details) if activity.details else {},
+                message=activity.message
+            ))
+        
+        has_more = (offset + limit) < total_count
+        
+        return models.ActivitiesResponse(
+            activities=activities,
+            total_count=total_count,
+            has_more=has_more
+        )
+    except Exception as e:
+        logger.error(f"Erro ao obter atividades: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao obter atividades: {str(e)}")
+
+
+@app.post("/api/v1/notifications/config", response_model=models.NotificationConfigResponse)
+async def create_notification_config(
+    config_data: models.NotificationConfigCreate,
+    session: Session = Depends(get_session)
+):
+    """
+    Endpoint para configuração de notificações.
+    Permite ativar/desativar notificações, configurar webhooks e definir thresholds.
+    """
+    try:
+        config = crud.create_notification_config(session, config_data)
+        
+        import json
+        return models.NotificationConfigResponse(
+            id=config.id,
+            enabled=config.enabled,
+            webhook_url=config.webhook_url,
+            webhook_type=config.webhook_type,
+            alert_thresholds=json.loads(config.alert_thresholds),
+            event_types=json.loads(config.event_types),
+            created_at=config.created_at,
+            updated_at=config.updated_at
+        )
+    except Exception as e:
+        logger.error(f"Erro ao criar configuração de notificações: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao criar configuração: {str(e)}")
+
+
+@app.get("/api/v1/notifications/config", response_model=Optional[models.NotificationConfigResponse])
+async def get_notification_config(session: Session = Depends(get_session)):
+    """
+    Obtém a configuração atual de notificações.
+    """
+    try:
+        config = crud.get_notification_config(session)
+        
+        if not config:
+            return None
+            
+        import json
+        return models.NotificationConfigResponse(
+            id=config.id,
+            enabled=config.enabled,
+            webhook_url=config.webhook_url,
+            webhook_type=config.webhook_type,
+            alert_thresholds=json.loads(config.alert_thresholds),
+            event_types=json.loads(config.event_types),
+            created_at=config.created_at,
+            updated_at=config.updated_at
+        )
+    except Exception as e:
+        logger.error(f"Erro ao obter configuração de notificações: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao obter configuração: {str(e)}")
+
+
+@app.get("/api/v1/system/metrics", response_model=models.SystemMetricsResponse)
+async def get_system_metrics(session: Session = Depends(get_session)):
+    """
+    Endpoint de métricas do sistema.
+    Retorna uptime da API, número de conexões ativas, filas de processamento
+    e métricas de performance.
+    """
+    try:
+        metrics_data = crud.get_system_metrics(session)
+        
+        return models.SystemMetricsResponse(**metrics_data)
+    except Exception as e:
+        logger.error(f"Erro ao obter métricas do sistema: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao obter métricas: {str(e)}")
+

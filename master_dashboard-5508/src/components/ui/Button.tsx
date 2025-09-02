@@ -1,5 +1,4 @@
 import React, { ReactNode, ButtonHTMLAttributes } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;

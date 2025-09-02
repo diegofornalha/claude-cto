@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Grid, GridItem, MetricsGrid } from '@/components/ui/Grid';
 import { Stack } from '@/components/ui/Stack';
 import { Skeleton, SkeletonCard, SkeletonMetricCard } from '@/components/ui/Skeleton';
-import { McpApi, Task, ApiError } from '@/services/mcp-api';
+import { McpApi, Task } from '@/services/mcp-api';
 
 // Types
 interface TaskStats {

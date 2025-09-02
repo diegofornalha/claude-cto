@@ -8,6 +8,8 @@ import { Alert } from '../../components/ui/Alert';
 import { Grid } from '../../components/ui/Grid';
 import { Stack } from '../../components/ui/Stack';
 import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
+import { ProtectedRoute } from '../../components/auth/ProtectedRoute';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 interface HealthMetric {
   id: string;
@@ -25,79 +27,129 @@ interface SystemHealthData {
   uptime: string;
 }
 
-const SystemHealthPage: React.FC = () => {
+const SystemHealthPageContent: React.FC = () => {
   const [healthData, setHealthData] = useState<SystemHealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Simular carregamento de dados de saúde
+  // Carregar dados de saúde da API real
   const loadHealthData = async () => {
     try {
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      setError(null);
       
-      // Dados mockados
-      const mockHealthData: SystemHealthData = {
-        overall: 'healthy',
+      // Buscar estatísticas da API real
+      const response = await fetch('http://localhost:8888/api/v1/stats');
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
+      }
+      
+      const stats = await response.json();
+      
+      // Mapear dados da API para o formato esperado
+      const healthData: SystemHealthData = {
+        overall: determineOverallHealth(stats),
         lastUpdated: new Date().toISOString(),
-        uptime: '2d 14h 23m',
+        uptime: formatUptime(stats.uptime_seconds || 0),
         metrics: [
           {
-            id: 'cpu',
-            name: 'Uso de CPU',
+            id: 'tasks_total',
+            name: 'Total de Tasks',
             status: 'healthy',
-            value: '23%',
-            description: 'Utilização média da CPU nas últimas 5 minutos',
-            lastCheck: new Date(Date.now() - 30000).toISOString()
+            value: stats.total_tasks?.toString() || '0',
+            description: 'Número total de tasks no sistema',
+            lastCheck: new Date().toISOString()
           },
           {
-            id: 'memory',
-            name: 'Uso de Memória',
-            status: 'warning',
-            value: '76%',
-            description: 'Utilização de memória RAM do sistema',
-            lastCheck: new Date(Date.now() - 30000).toISOString()
+            id: 'tasks_pending',
+            name: 'Tasks Pendentes',
+            status: stats.pending_tasks > 10 ? 'warning' : 'healthy',
+            value: stats.pending_tasks?.toString() || '0',
+            description: 'Tasks aguardando execução',
+            lastCheck: new Date().toISOString()
           },
           {
-            id: 'disk',
-            name: 'Espaço em Disco',
+            id: 'tasks_running',
+            name: 'Tasks em Execução',
+            status: stats.running_tasks > 5 ? 'warning' : 'healthy',
+            value: stats.running_tasks?.toString() || '0',
+            description: 'Tasks sendo processadas atualmente',
+            lastCheck: new Date().toISOString()
+          },
+          {
+            id: 'tasks_completed',
+            name: 'Tasks Concluídas',
             status: 'healthy',
-            value: '45%',
-            description: 'Utilização de espaço em disco principal',
-            lastCheck: new Date(Date.now() - 30000).toISOString()
+            value: stats.completed_tasks?.toString() || '0',
+            description: 'Tasks finalizadas com sucesso',
+            lastCheck: new Date().toISOString()
           },
           {
-            id: 'api',
-            name: 'API Response',
+            id: 'tasks_failed',
+            name: 'Tasks com Falha',
+            status: stats.failed_tasks > 0 ? 'critical' : 'healthy',
+            value: stats.failed_tasks?.toString() || '0',
+            description: 'Tasks que falharam na execução',
+            lastCheck: new Date().toISOString()
+          },
+          {
+            id: 'api_status',
+            name: 'Status da API',
             status: 'healthy',
-            value: '120ms',
-            description: 'Tempo médio de resposta da API',
-            lastCheck: new Date(Date.now() - 15000).toISOString()
-          },
-          {
-            id: 'database',
-            name: 'Conexão do Banco',
-            status: 'healthy',
-            value: 'Conectado',
-            description: 'Status da conexão com o banco de dados',
-            lastCheck: new Date(Date.now() - 10000).toISOString()
-          },
-          {
-            id: 'tasks',
-            name: 'Processamento de Tasks',
-            status: 'critical',
-            value: 'Queue cheia',
-            description: '3 tasks pendentes há mais de 1 hora',
-            lastCheck: new Date(Date.now() - 5000).toISOString()
+            value: 'Online',
+            description: 'Conexão com o servidor API',
+            lastCheck: new Date().toISOString()
           }
         ]
       };
       
-      setHealthData(mockHealthData);
+      setHealthData(healthData);
     } catch (err) {
-      setError('Erro ao carregar dados de saúde do sistema');
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Erro ao carregar dados de saúde do sistema: ${errorMessage}`);
+      console.error('Erro ao carregar health data:', err);
+      
+      // Definir dados de fallback quando a API não estiver disponível
+      setHealthData({
+        overall: 'critical',
+        lastUpdated: new Date().toISOString(),
+        uptime: 'N/A',
+        metrics: [
+          {
+            id: 'api_status',
+            name: 'Status da API',
+            status: 'critical',
+            value: 'Offline',
+            description: 'Não foi possível conectar ao servidor API',
+            lastCheck: new Date().toISOString()
+          }
+        ]
+      });
     }
+  };
+
+  // Função auxiliar para determinar saúde geral
+  const determineOverallHealth = (stats: any): 'healthy' | 'warning' | 'critical' => {
+    if (stats.failed_tasks > 5) return 'critical';
+    if (stats.pending_tasks > 10 || stats.running_tasks > 5) return 'warning';
+    return 'healthy';
+  };
+
+  // Função auxiliar para formatar uptime
+  const formatUptime = (seconds: number): string => {
+    if (seconds === 0) return 'N/A';
+    
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    
+    return parts.join(' ') || '< 1m';
   };
 
   useEffect(() => {
@@ -328,6 +380,16 @@ const SystemHealthPage: React.FC = () => {
         )}
       </Stack>
     </AdminLayout>
+  );
+};
+
+const SystemHealthPage: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ProtectedRoute requireAdmin>
+        <SystemHealthPageContent />
+      </ProtectedRoute>
+    </AuthProvider>
   );
 };
 

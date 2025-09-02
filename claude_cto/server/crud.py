@@ -266,6 +266,60 @@ def get_orchestration(session: Session, orchestration_id: int) -> Optional[model
     return session.get(models.OrchestrationDB, orchestration_id)
 
 
+def get_task_statistics(session: Session) -> dict:
+    """
+    Get real-time task statistics for monitoring
+    Returns counts by status and performance metrics
+    """
+    from sqlmodel import func
+    
+    # Count tasks by status
+    status_counts = {}
+    for status in models.TaskStatus:
+        count = session.exec(
+            select(func.count(models.TaskDB.id))
+            .where(models.TaskDB.status == status)
+        ).first()
+        status_counts[status.value] = count or 0
+    
+    # Calculate success/failure rates
+    total_completed = status_counts.get("completed", 0)
+    total_failed = status_counts.get("failed", 0)
+    total_finished = total_completed + total_failed
+    
+    success_rate = (total_completed / total_finished * 100) if total_finished > 0 else 0
+    failure_rate = (total_failed / total_finished * 100) if total_finished > 0 else 0
+    
+    # Calculate average execution time for completed tasks
+    avg_time_result = session.exec(
+        select(func.avg(
+            func.julianday(models.TaskDB.ended_at) - func.julianday(models.TaskDB.started_at)
+        ))
+        .where(models.TaskDB.status == models.TaskStatus.COMPLETED)
+        .where(models.TaskDB.started_at.is_not(None))
+        .where(models.TaskDB.ended_at.is_not(None))
+    ).first()
+    
+    # Convert days to seconds
+    avg_execution_time = (avg_time_result * 86400) if avg_time_result else None
+    
+    # Count tasks in last 24 hours
+    from datetime import datetime, timedelta
+    last_24h = datetime.utcnow() - timedelta(hours=24)
+    tasks_24h = session.exec(
+        select(func.count(models.TaskDB.id))
+        .where(models.TaskDB.created_at >= last_24h)
+    ).first()
+    
+    return {
+        "total_tasks_by_status": status_counts,
+        "success_rate": round(success_rate, 2),
+        "failure_rate": round(failure_rate, 2),
+        "average_execution_time": round(avg_execution_time, 2) if avg_execution_time else None,
+        "tasks_last_24h": tasks_24h or 0
+    }
+
+
 def get_all_orchestrations(
     session: Session, status: Optional[str] = None, limit: int = 100
 ) -> List[models.OrchestrationDB]:
@@ -329,3 +383,204 @@ def delete_task(session: Session, task_id: int) -> bool:
     session.delete(task)
     session.commit()
     return True
+
+
+# Monitoring CRUD Functions
+
+def get_task_stats(session: Session) -> dict:
+    """
+    Obtém estatísticas em tempo real das tarefas.
+    Calcula contadores por status, taxas de sucesso/falha e tempo médio de execução.
+    """
+    from sqlmodel import func
+    
+    # Contador de tarefas por status
+    status_counts = {}
+    for status in models.TaskStatus:
+        count = session.exec(
+            select(func.count(models.TaskDB.id)).where(models.TaskDB.status == status)
+        ).first() or 0
+        status_counts[status.value] = count
+    
+    total_tasks = sum(status_counts.values())
+    
+    # Taxa de sucesso e falha
+    completed_tasks = status_counts.get('completed', 0)
+    failed_tasks = status_counts.get('failed', 0)
+    
+    success_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0.0
+    failure_rate = (failed_tasks / total_tasks * 100) if total_tasks > 0 else 0.0
+    
+    # Tempo médio de execução (apenas tarefas completadas com tempos válidos)
+    avg_time_query = session.exec(
+        select(func.avg(
+            func.julianday(models.TaskDB.ended_at) - func.julianday(models.TaskDB.started_at)
+        ) * 86400).where(  # Converte dias para segundos
+            models.TaskDB.status == models.TaskStatus.COMPLETED,
+            models.TaskDB.started_at.is_not(None),
+            models.TaskDB.ended_at.is_not(None)
+        )
+    ).first()
+    
+    avg_execution_time = float(avg_time_query) if avg_time_query else None
+    
+    # Tarefas das últimas 24 horas
+    from datetime import timedelta
+    yesterday = datetime.utcnow() - timedelta(hours=24)
+    tasks_last_24h = session.exec(
+        select(func.count(models.TaskDB.id)).where(
+            models.TaskDB.created_at >= yesterday
+        )
+    ).first() or 0
+    
+    return {
+        'total_tasks_by_status': status_counts,
+        'success_rate': round(success_rate, 2),
+        'failure_rate': round(failure_rate, 2),
+        'average_execution_time': round(avg_execution_time, 2) if avg_execution_time else None,
+        'tasks_last_24h': tasks_last_24h
+    }
+
+
+def log_activity(session: Session, event_type: str, message: str, task_id: Optional[int] = None, 
+                orchestration_id: Optional[int] = None, details: dict = None) -> models.ActivityLogDB:
+    """
+    Registra uma atividade no log estruturado.
+    Usado para rastrear eventos importantes do sistema.
+    """
+    import json
+    
+    activity = models.ActivityLogDB(
+        event_type=event_type,
+        message=message,
+        task_id=task_id,
+        orchestration_id=orchestration_id,
+        details=json.dumps(details or {})
+    )
+    
+    session.add(activity)
+    session.commit()
+    session.refresh(activity)
+    return activity
+
+
+def get_recent_activities(session: Session, limit: int = 100, offset: int = 0, 
+                         event_type_filter: Optional[str] = None) -> tuple[List[models.ActivityLogDB], int]:
+    """
+    Obtém atividades recentes com paginação e filtros.
+    Retorna a lista de atividades e o total para paginação.
+    """
+    from sqlmodel import func
+    
+    # Query base
+    base_query = select(models.ActivityLogDB)
+    count_query = select(func.count(models.ActivityLogDB.id))
+    
+    # Aplicar filtro de tipo se especificado
+    if event_type_filter:
+        base_query = base_query.where(models.ActivityLogDB.event_type == event_type_filter)
+        count_query = count_query.where(models.ActivityLogDB.event_type == event_type_filter)
+    
+    # Paginação e ordenação
+    activities_query = base_query.order_by(models.ActivityLogDB.timestamp.desc()).offset(offset).limit(limit)
+    
+    # Executar queries
+    activities = session.exec(activities_query).all()
+    total_count = session.exec(count_query).first() or 0
+    
+    return list(activities), total_count
+
+
+def create_notification_config(session: Session, config_data: models.NotificationConfigCreate) -> models.NotificationConfigDB:
+    """
+    Cria nova configuração de notificações.
+    """
+    import json
+    
+    # Remover configuração existente se houver (apenas uma config ativa por vez)
+    existing = session.exec(select(models.NotificationConfigDB)).first()
+    if existing:
+        session.delete(existing)
+    
+    config = models.NotificationConfigDB(
+        enabled=config_data.enabled,
+        webhook_url=config_data.webhook_url,
+        webhook_type=config_data.webhook_type,
+        alert_thresholds=json.dumps(config_data.alert_thresholds),
+        event_types=json.dumps(config_data.event_types)
+    )
+    
+    session.add(config)
+    session.commit()
+    session.refresh(config)
+    return config
+
+
+def get_notification_config(session: Session) -> Optional[models.NotificationConfigDB]:
+    """
+    Obtém a configuração atual de notificações.
+    """
+    return session.exec(select(models.NotificationConfigDB)).first()
+
+
+def get_system_metrics(session: Session) -> dict:
+    """
+    Obtém métricas do sistema em tempo real.
+    Calcula estatísticas de tarefas, conexões e recursos.
+    """
+    import time
+    from sqlmodel import func
+    
+    try:
+        import psutil
+    except ImportError:
+        psutil = None
+    
+    # Métricas básicas de tarefas
+    pending_tasks = session.exec(
+        select(func.count(models.TaskDB.id)).where(models.TaskDB.status == models.TaskStatus.PENDING)
+    ).first() or 0
+    
+    running_tasks = session.exec(
+        select(func.count(models.TaskDB.id)).where(models.TaskDB.status == models.TaskStatus.RUNNING)
+    ).first() or 0
+    
+    waiting_tasks = session.exec(
+        select(func.count(models.TaskDB.id)).where(models.TaskDB.status == models.TaskStatus.WAITING)
+    ).first() or 0
+    
+    # Queue size = pending + waiting
+    queue_size = pending_tasks + waiting_tasks
+    
+    # Uptime (aproximado - desde o primeiro log ou task)
+    first_task = session.exec(
+        select(models.TaskDB).order_by(models.TaskDB.created_at.asc()).limit(1)
+    ).first()
+    
+    uptime_seconds = 0.0
+    if first_task:
+        uptime_seconds = (datetime.utcnow() - first_task.created_at).total_seconds()
+    
+    # Métricas de sistema (se psutil estiver disponível)
+    memory_usage_mb = None
+    cpu_usage_percent = None
+    
+    if psutil:
+        try:
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            memory_usage_mb = memory_info.rss / 1024 / 1024  # Bytes para MB
+            cpu_usage_percent = process.cpu_percent()
+        except Exception:
+            pass  # Falha ao obter métricas de sistema
+    
+    return {
+        'uptime_seconds': uptime_seconds,
+        'active_connections': 0,  # TODO: implementar contador de conexões
+        'pending_tasks': pending_tasks,
+        'running_tasks': running_tasks,
+        'waiting_tasks': waiting_tasks,
+        'queue_size': queue_size,
+        'memory_usage_mb': memory_usage_mb,
+        'cpu_usage_percent': cpu_usage_percent
+    }

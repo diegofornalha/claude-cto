@@ -1,5 +1,4 @@
 import React, { InputHTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -22,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     disabled,
     ...props 
   }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substring(7)}`;
+    const inputId = id || `input-default`;
     
     const sizeStyles = {
       sm: 'px-3 py-1.5 text-sm',

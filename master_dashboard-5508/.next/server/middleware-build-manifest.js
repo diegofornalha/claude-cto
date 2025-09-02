@@ -27,17 +27,29 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/admin": [
+    "/admin/delete-task": [
       "static/chunks/webpack.js",
       "static/chunks/vendors.js",
       "static/chunks/main.js",
-      "static/chunks/pages/admin.js"
+      "static/chunks/pages/admin/delete-task.js"
     ],
-    "/admin/health": [
+    "/analytics": [
       "static/chunks/webpack.js",
       "static/chunks/vendors.js",
       "static/chunks/main.js",
-      "static/chunks/pages/admin/health.js"
+      "static/chunks/pages/analytics.js"
+    ],
+    "/monitor": [
+      "static/chunks/webpack.js",
+      "static/chunks/vendors.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/monitor.js"
+    ],
+    "/monitor/activities": [
+      "static/chunks/webpack.js",
+      "static/chunks/vendors.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/monitor/activities.js"
     ],
     "/orchestration": [
       "static/chunks/webpack.js",
@@ -45,17 +57,11 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/orchestration.js"
     ],
-    "/sitemap": [
+    "/settings": [
       "static/chunks/webpack.js",
       "static/chunks/vendors.js",
       "static/chunks/main.js",
-      "static/chunks/pages/sitemap.js"
-    ],
-    "/tasks": [
-      "static/chunks/webpack.js",
-      "static/chunks/vendors.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/tasks.js"
+      "static/chunks/pages/settings.js"
     ]
   },
   "ampFirstPages": []

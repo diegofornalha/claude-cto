@@ -8,6 +8,9 @@ import { Alert } from '../../components/ui/Alert';
 import { Grid } from '../../components/ui/Grid';
 import { Stack } from '../../components/ui/Stack';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { ProtectedRoute } from '../../components/auth/ProtectedRoute';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 interface Task {
   id: string;
@@ -26,7 +29,7 @@ interface DeleteResult {
   taskId?: string;
 }
 
-const DeleteTaskPage: React.FC = () => {
+const DeleteTaskPageContent: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -34,114 +37,120 @@ const DeleteTaskPage: React.FC = () => {
   const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  // Simular carregamento de tasks
+  // Carregar tasks da API real
   const loadTasks = async () => {
     try {
       setLoading(true);
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setError(null);
       
-      // Dados mockados
-      const mockTasks: Task[] = [
-        {
-          id: 'task-1',
-          identifier: 'analyze_project',
-          status: 'completed',
-          title: 'Análise do projeto principal',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          updatedAt: new Date(Date.now() - 80000000).toISOString(),
-          model: 'opus',
-          workingDirectory: '/project'
-        },
-        {
-          id: 'task-2',
-          identifier: 'fix_bugs',
-          status: 'failed',
-          title: 'Correção de bugs críticos',
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-          updatedAt: new Date(Date.now() - 6900000).toISOString(),
-          model: 'sonnet',
-          workingDirectory: '/project/src'
-        },
-        {
-          id: 'task-3',
-          identifier: 'update_docs',
-          status: 'completed',
-          title: 'Atualização da documentação',
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          updatedAt: new Date(Date.now() - 3300000).toISOString(),
-          model: 'haiku',
-          workingDirectory: '/docs'
-        },
-        {
-          id: 'task-4',
-          identifier: 'optimize_code',
-          status: 'running',
-          title: 'Otimização de performance',
-          createdAt: new Date(Date.now() - 1800000).toISOString(),
-          updatedAt: new Date(Date.now() - 300000).toISOString(),
-          model: 'opus',
-          workingDirectory: '/project/src'
-        },
-        {
-          id: 'task-5',
-          identifier: 'test_suite',
-          status: 'pending',
-          title: 'Execução da suite de testes',
-          createdAt: new Date(Date.now() - 900000).toISOString(),
-          updatedAt: new Date(Date.now() - 900000).toISOString(),
-          model: 'sonnet',
-          workingDirectory: '/project/tests'
-        }
-      ];
+      const response = await fetch('http://localhost:8888/api/v1/tasks');
       
-      setTasks(mockTasks);
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Mapear resposta da API para formato esperado
+      const mappedTasks: Task[] = data.map((task: any) => ({
+        id: task.id?.toString() || task.task_id?.toString() || '',
+        identifier: task.identifier || task.task_identifier || '',
+        status: task.status || 'pending',
+        title: task.execution_prompt?.substring(0, 100) || task.title || 'Sem título',
+        createdAt: task.created_at || task.createdAt || new Date().toISOString(),
+        updatedAt: task.updated_at || task.updatedAt || new Date().toISOString(),
+        model: task.model || 'opus',
+        workingDirectory: task.working_directory || task.workingDirectory || '/'
+      }));
+      
+      setTasks(mappedTasks);
     } catch (err) {
-      setError('Erro ao carregar lista de tasks');
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao carregar tasks';
+      setError(`Erro ao carregar lista de tasks: ${errorMessage}`);
+      console.error('Erro ao carregar tasks:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Simular operação de delete
-  const handleDeleteTask = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+  // Abrir diálogo de confirmação para deletar
+  const openDeleteDialog = (task: Task) => {
+    setTaskToDelete(task);
+    setConfirmDialogOpen(true);
+  };
+
+  // Deletar task usando a API real
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+    const taskId = taskToDelete.id;
     
     try {
       setDeleting(taskId);
       setError(null);
       setDeleteResult(null);
       
-      // Simular delay de operação
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       // Verificar se task pode ser deletada (não pode deletar tasks em execução)
-      if (task.status === 'running') {
+      if (taskToDelete.status === 'running') {
         throw new Error('Não é possível deletar uma task que está em execução');
       }
       
-      // Simular resultado de sucesso
+      // Fazer requisição DELETE para a API
+      const response = await fetch(`http://localhost:8888/api/v1/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        // Tentar ler a mensagem de erro do corpo da resposta
+        let errorMessage = `Erro HTTP: ${response.status} - ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail || errorData.message) {
+            errorMessage = errorData.detail || errorData.message;
+          }
+        } catch {
+          // Usar mensagem padrão se não conseguir parsear JSON
+        }
+        throw new Error(errorMessage);
+      }
+      
+      // Processar resposta de sucesso
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch {
+        // Resposta pode estar vazia para DELETE
+        responseData = { success: true };
+      }
+      
       const result: DeleteResult = {
         success: true,
-        message: `Task "${task.identifier}" foi removida com sucesso`,
+        message: responseData.message || `Task "${taskToDelete.identifier}" foi removida com sucesso`,
         taskId: taskId
       };
       
       setDeleteResult(result);
+      setConfirmDialogOpen(false);
+      setTaskToDelete(null);
       
-      // Remover task da lista
+      // Remover task da lista local
       setTasks(prev => prev.filter(t => t.id !== taskId));
       setSelectedTask('');
       
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao deletar task';
       const result: DeleteResult = {
         success: false,
-        message: err instanceof Error ? err.message : 'Erro ao deletar task. Tente novamente.',
+        message: `Erro ao deletar task: ${errorMessage}`,
         taskId: taskId
       };
       setDeleteResult(result);
+      console.error('Erro ao deletar task:', err);
     } finally {
       setDeleting(null);
     }
@@ -407,16 +416,15 @@ const DeleteTaskPage: React.FC = () => {
                   <Stack direction="horizontal" spacing="sm" align="center">
                     <Button
                       variant="danger"
-                      onClick={() => handleDeleteTask(selectedTaskData.id)}
+                      onClick={() => openDeleteDialog(selectedTaskData)}
                       disabled={!canDelete}
-                      loading={deleting === selectedTaskData.id}
                       leftIcon={
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       }
                     >
-                      {deleting === selectedTaskData.id ? 'Deletando...' : 'Deletar Task'}
+                      Deletar Task
                     </Button>
 
                     <Button
@@ -446,7 +454,33 @@ const DeleteTaskPage: React.FC = () => {
           </Card>
         </Grid>
       </Stack>
+
+      {/* Diálogo de Confirmação */}
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        title="Deletar Task"
+        message={`Tem certeza que deseja deletar a task "${taskToDelete?.identifier}"? Esta ação não pode ser desfeita.`}
+        confirmText="Deletar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleDeleteTask}
+        onCancel={() => {
+          setConfirmDialogOpen(false);
+          setTaskToDelete(null);
+        }}
+        loading={deleting !== null}
+      />
     </AdminLayout>
+  );
+};
+
+const DeleteTaskPage: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ProtectedRoute requireAdmin>
+        <DeleteTaskPageContent />
+      </ProtectedRoute>
+    </AuthProvider>
   );
 };
 

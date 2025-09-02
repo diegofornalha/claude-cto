@@ -1,5 +1,4 @@
 import React, { HTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface ContainerProps extends HTMLAttributes<HTMLDivElement> {
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';

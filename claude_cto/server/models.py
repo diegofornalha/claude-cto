@@ -4,7 +4,7 @@ serving as the single source of truth for data shapes.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from enum import Enum
 from sqlmodel import SQLModel, Field
 from pydantic import BaseModel, field_validator
@@ -194,3 +194,101 @@ class OrchestrationCreate(BaseModel):
             raise ValueError("Task identifiers must be unique")
 
         return v
+
+
+# Monitoring Models
+
+class StatsResponse(BaseModel):
+    """Resposta das estatísticas em tempo real."""
+    
+    total_tasks_by_status: Dict[str, int]
+    success_rate: float
+    failure_rate: float
+    average_execution_time: Optional[float]  # em segundos
+    tasks_last_24h: int
+    system_resources: Optional[Dict[str, Any]] = None
+
+
+class ActivityEvent(BaseModel):
+    """Evento de atividade para o feed."""
+    
+    id: int
+    timestamp: datetime
+    event_type: str  # task_created, task_completed, task_failed, orchestration_started, etc.
+    task_id: Optional[int] = None
+    orchestration_id: Optional[int] = None
+    details: Dict[str, Any]
+    message: str
+
+
+class ActivitiesResponse(BaseModel):
+    """Resposta do feed de atividades."""
+    
+    activities: List[ActivityEvent]
+    total_count: int
+    has_more: bool
+
+
+class NotificationConfigDB(SQLModel, table=True):
+    """Configuração de notificações no banco de dados."""
+    
+    __tablename__ = "notification_configs"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    enabled: bool = Field(default=True)
+    webhook_url: Optional[str] = None
+    webhook_type: str = Field(default="generic")  # slack, discord, generic
+    alert_thresholds: str = Field(default='{}')  # JSON string
+    event_types: str = Field(default='[]')  # JSON array de event types
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None, sa_column_kwargs={"onupdate": datetime.utcnow})
+
+
+class NotificationConfigCreate(BaseModel):
+    """Criação de configuração de notificações."""
+    
+    enabled: bool = True
+    webhook_url: Optional[str] = None
+    webhook_type: str = "generic"  # slack, discord, generic
+    alert_thresholds: Dict[str, Any] = {}
+    event_types: List[str] = []
+
+
+class NotificationConfigResponse(BaseModel):
+    """Resposta da configuração de notificações."""
+    
+    id: int
+    enabled: bool
+    webhook_url: Optional[str]
+    webhook_type: str
+    alert_thresholds: Dict[str, Any]
+    event_types: List[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+
+class SystemMetricsResponse(BaseModel):
+    """Resposta das métricas do sistema."""
+    
+    uptime_seconds: float
+    active_connections: int
+    pending_tasks: int
+    running_tasks: int
+    waiting_tasks: int
+    queue_size: int
+    memory_usage_mb: Optional[float] = None
+    cpu_usage_percent: Optional[float] = None
+
+
+class ActivityLogDB(SQLModel, table=True):
+    """Log de atividades no banco de dados."""
+    
+    __tablename__ = "activity_logs"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    event_type: str = Field(index=True)
+    task_id: Optional[int] = Field(default=None, index=True)
+    orchestration_id: Optional[int] = Field(default=None, index=True)
+    details: str = Field(default='{}')  # JSON string
+    message: str

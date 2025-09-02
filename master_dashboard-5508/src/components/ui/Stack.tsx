@@ -1,5 +1,4 @@
 import React, { HTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface StackProps extends HTMLAttributes<HTMLDivElement> {
   direction?: 'horizontal' | 'vertical';

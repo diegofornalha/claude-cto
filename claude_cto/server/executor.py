@@ -61,6 +61,18 @@ class TaskExecutor:
             task_record.started_at = datetime.utcnow()  # Execution timestamp for duration calculations
             session.add(task_record)
             session.commit()
+            
+            # Broadcast WebSocket event for task start
+            from .websocket_manager import manager, WebSocketEventType
+            await manager.broadcast_task_event(
+                WebSocketEventType.TASK_STARTED,
+                self.task_id,
+                {
+                    "status": "running",
+                    "started_at": task_record.started_at.isoformat(),
+                    "model": task_record.model
+                }
+            )
 
             # Task parameter extraction: copies data out of session scope for async processing
             working_directory = task_record.working_directory
@@ -184,6 +196,19 @@ class TaskExecutor:
                     # Database finalization: atomic status transition to COMPLETED with summary
                     for session in get_session():
                         crud.finalize_task(session, self.task_id, models.TaskStatus.COMPLETED, success_msg)
+                    
+                    # Broadcast WebSocket event for task completion
+                    from .websocket_manager import manager, WebSocketEventType
+                    await manager.broadcast_task_event(
+                        WebSocketEventType.TASK_COMPLETED,
+                        self.task_id,
+                        {
+                            "status": "completed",
+                            "message": success_msg,
+                            "duration_seconds": duration,
+                            "message_count": message_count
+                        }
+                    )
 
                     # Resource cleanup: stops monitoring and releases task-specific resources
                     memory_monitor.end_task_monitoring(self.task_id, success=True)
@@ -212,6 +237,20 @@ class TaskExecutor:
                                 self.task_id,
                                 f"[retry] Attempt {attempt} failed, retrying in {wait_time}s",
                             )
+                        
+                        # Broadcast WebSocket event for retry progress
+                        from .websocket_manager import manager, WebSocketEventType
+                        await manager.broadcast_task_event(
+                            WebSocketEventType.TASK_PROGRESS,
+                            self.task_id,
+                            {
+                                "status": "retrying",
+                                "attempt": attempt,
+                                "max_attempts": max_attempts,
+                                "wait_time": wait_time,
+                                "error": str(e)
+                            }
+                        )
 
                         # Backoff delay: prevents overwhelming failing services
                         await asyncio.sleep(wait_time)
@@ -276,6 +315,20 @@ class TaskExecutor:
                 # Database failure finalization: atomic status transition to FAILED with error message
                 for session in get_session():
                     crud.finalize_task(session, self.task_id, models.TaskStatus.FAILED, error_msg)
+                
+                # Broadcast WebSocket event for task failure
+                from .websocket_manager import manager, WebSocketEventType
+                await manager.broadcast_task_event(
+                    WebSocketEventType.TASK_FAILED,
+                    self.task_id,
+                    {
+                        "status": "failed",
+                        "error_type": error_info['error_type'],
+                        "error_message": error_info['error_message'],
+                        "duration_seconds": duration,
+                        "attempts": attempt
+                    }
+                )
 
                 # Failed task cleanup: stops monitoring and releases resources
                 memory_monitor.end_task_monitoring(self.task_id, success=False)

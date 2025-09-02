@@ -8,6 +8,10 @@ import { Alert } from '../../components/ui/Alert';
 import { Grid } from '../../components/ui/Grid';
 import { Stack } from '../../components/ui/Stack';
 import { Skeleton, SkeletonCard, SkeletonMetricCard } from '../../components/ui/Skeleton';
+import { SystemMetrics } from '../../components/admin/SystemMetrics';
+import { SystemLogs } from '../../components/admin/SystemLogs';
+import { ProtectedRoute } from '../../components/auth/ProtectedRoute';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 interface SystemMetrics {
   totalTasks: number;
@@ -27,7 +31,7 @@ interface QuickAction {
   variant: 'primary' | 'secondary' | 'danger';
 }
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboardContent: React.FC = () => {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +155,9 @@ const AdminDashboard: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      {/* Métricas em Tempo Real */}
+      <SystemMetrics refreshInterval={5000} />
 
       {/* Métricas do Sistema */}
       <Stack spacing="lg">
@@ -312,8 +319,21 @@ const AdminDashboard: React.FC = () => {
             ))}
           </Grid>
         </div>
+
+        {/* Logs do Sistema */}
+        <SystemLogs maxEntries={50} autoScroll />
       </Stack>
     </AdminLayout>
+  );
+};
+
+const AdminDashboard: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ProtectedRoute requireAdmin>
+        <AdminDashboardContent />
+      </ProtectedRoute>
+    </AuthProvider>
   );
 };
 

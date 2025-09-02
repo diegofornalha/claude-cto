@@ -2,10 +2,11 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/admin/health": "pages/admin/health.js",
-  "/admin": "pages/admin.js",
   "/orchestration": "pages/orchestration.js",
-  "/tasks": "pages/tasks.js",
-  "/sitemap": "pages/sitemap.js",
-  "/": "pages/index.js"
+  "/monitor": "pages/monitor.js",
+  "/analytics": "pages/analytics.js",
+  "/settings": "pages/settings.js",
+  "/monitor/activities": "pages/monitor/activities.js",
+  "/": "pages/index.js",
+  "/admin/delete-task": "pages/admin/delete-task.js"
 }

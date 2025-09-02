@@ -1,5 +1,4 @@
 import React, { HTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface GridProps extends HTMLAttributes<HTMLDivElement> {
   cols?: 1 | 2 | 3 | 4 | 5 | 6 | 12 | 'auto';
@@ -260,24 +259,3 @@ export const MetricsGrid = forwardRef<HTMLDivElement, Omit<GridProps, 'cols' | '
 
 MetricsGrid.displayName = 'MetricsGrid';
 
-// Specialized grid for content layout
-export const ContentGrid = forwardRef<HTMLDivElement, Omit<GridProps, 'cols' | 'gap'>>((
-  { children, className = '', ...props },
-  ref
-) => {
-  return (
-    <Grid
-      ref={ref}
-      cols={1}
-      colsMd={2}
-      colsLg={3}
-      gap="lg"
-      className={className}
-      {...props}
-    >
-      {children}
-    </Grid>
-  );
-});
-
-ContentGrid.displayName = 'ContentGrid';

@@ -156,13 +156,39 @@ export default function CreateTask() {
     setLoading(true);
 
     try {
-      // Simular chamada API
-      console.log('Criando task:', formData);
-      
-      // Aqui você faria a chamada real para a API
-      // const response = await createTask(formData);
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Fazer chamada real para a API
+      const response = await fetch('http://localhost:8888/api/v1/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_identifier: formData.identifier,
+          execution_prompt: formData.execution_prompt,
+          working_directory: formData.working_directory,
+          model: formData.model,
+          system_prompt: formData.system_prompt || undefined,
+          depends_on: formData.depends_on.length > 0 ? formData.depends_on : undefined,
+          wait_after_dependencies: formData.wait_after_dependencies,
+          orchestration_group: formData.orchestration_group || undefined
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Erro HTTP: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail || errorData.message) {
+            errorMessage = errorData.detail || errorData.message;
+          }
+        } catch {
+          // Usar mensagem padrão se não conseguir parsear JSON
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Task criada com sucesso:', result);
       
       // Reset form after success
       setFormData({
@@ -178,10 +204,17 @@ export default function CreateTask() {
       
       setSelectedTemplate(null);
       
-      alert('Task criada com sucesso!');
+      // Mostrar mensagem de sucesso e redirecionar
+      alert(`Task "${result.task_identifier || result.identifier}" criada com sucesso!`);
+      
+      // Redirecionar para lista de tasks após 1 segundo
+      setTimeout(() => {
+        window.location.href = '/tasks/list';
+      }, 1000);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('Erro ao criar task:', error);
-      alert('Erro ao criar task. Tente novamente.');
+      alert(`Erro ao criar task: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

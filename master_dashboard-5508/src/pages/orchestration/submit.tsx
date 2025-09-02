@@ -150,21 +150,53 @@ const SubmitOrchestration: React.FC = () => {
     setSubmitting(true);
 
     try {
-      // Simular submissão (implementar integração com API real)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Aqui você implementaria a chamada real para a API MCP
-      console.log('Dados do formulário:', formData);
+      // Submeter para a API real
+      const response = await fetch('http://localhost:8888/api/v1/orchestrations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orchestration_group: formData.orchestration_group,
+          tasks: formData.tasks.map(task => ({
+            task_identifier: task.task_identifier,
+            execution_prompt: task.execution_prompt,
+            working_directory: task.working_directory,
+            model: task.model,
+            depends_on: task.depends_on.length > 0 ? task.depends_on : undefined,
+            wait_after_dependencies: task.wait_after_dependencies,
+            orchestration_group: formData.orchestration_group
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Erro HTTP: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail || errorData.message) {
+            errorMessage = errorData.detail || errorData.message;
+          }
+        } catch {
+          // Usar mensagem padrão se não conseguir parsear JSON
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Orquestração criada com sucesso:', result);
       
       setSuccess(true);
       
-      // Reset do formulário após sucesso
-      setTimeout(() => {
-        window.location.href = '/orchestration';
-      }, 3000);
+      // Redirecionar após sucesso (sem setTimeout)
+      // Aguardar 2 segundos para mostrar mensagem de sucesso
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      window.location.href = '/orchestration';
 
     } catch (err) {
-      setError('Erro ao submeter orquestração. Tente novamente.');
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Erro ao submeter orquestração: ${errorMessage}`);
+      console.error('Erro ao submeter orquestração:', err);
     } finally {
       setSubmitting(false);
     }

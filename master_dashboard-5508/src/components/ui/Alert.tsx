@@ -1,5 +1,4 @@
 import React, { HTMLAttributes, forwardRef } from 'react';
-import { tokens } from '../../utils/design-tokens';
 
 export interface AlertProps extends HTMLAttributes<HTMLDivElement> {
   severity?: 'info' | 'success' | 'warning' | 'error';

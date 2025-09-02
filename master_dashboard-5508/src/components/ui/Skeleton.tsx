@@ -18,7 +18,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
     style,
     ...props 
   }, ref) => {
-    const baseStyles = 'bg-gray-200 dark:bg-gray-700';
+    const baseStyles = 'bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600';
 
     const variantStyles = {
       text: 'rounded',
@@ -77,26 +77,6 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
 
 Skeleton.displayName = 'Skeleton';
 
-// Skeleton container for wrapping multiple skeleton elements
-export interface SkeletonContainerProps extends HTMLAttributes<HTMLDivElement> {
-  loading?: boolean;
-}
-
-export const SkeletonContainer = forwardRef<HTMLDivElement, SkeletonContainerProps>(
-  ({ loading = true, children, className = '', ...props }, ref) => {
-    if (!loading) {
-      return <>{children}</>;
-    }
-
-    return (
-      <div ref={ref} className={className} {...props}>
-        {children}
-      </div>
-    );
-  }
-);
-
-SkeletonContainer.displayName = 'SkeletonContainer';
 
 // Utility component for common skeleton patterns
 export interface SkeletonCardProps extends HTMLAttributes<HTMLDivElement> {
@@ -156,40 +136,3 @@ export const SkeletonMetricCard = forwardRef<HTMLDivElement, HTMLAttributes<HTML
 
 SkeletonMetricCard.displayName = 'SkeletonMetricCard';
 
-// Skeleton for system health component
-export const SkeletonSystemHealth = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className = '', ...props }, ref) => {
-    return (
-      <div ref={ref} className={`space-y-4 ${className}`} {...props}>
-        <Skeleton variant="text" width="40%" height="24px" className="mb-4" />
-        <div className="grid grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton variant="text" width="60%" height="14px" />
-              <Skeleton variant="rectangular" height="8px" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-);
-
-SkeletonSystemHealth.displayName = 'SkeletonSystemHealth';
-
-// Skeleton for quick action buttons
-export const SkeletonQuickAction = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className = '', ...props }, ref) => {
-    return (
-      <div ref={ref} className={`bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md ${className}`} {...props}>
-        <div className="flex flex-col items-center space-y-3">
-          <Skeleton variant="circular" width={48} height={48} />
-          <Skeleton variant="text" width="70%" height="16px" />
-          <Skeleton variant="text" width="90%" height="12px" />
-        </div>
-      </div>
-    );
-  }
-);
-
-SkeletonQuickAction.displayName = 'SkeletonQuickAction';

@@ -11,18 +11,16 @@ interface ErrorProps {
   title?: string
 }
 
-// Error Boundary Component
-class ErrorBoundary {
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error }
-  }
-}
 
 const ErrorPage: NextPage<ErrorProps> = ({ statusCode, hasGetInitialPropsRun, err, title }) => {
   const router = useRouter()
   const [isReloading, setIsReloading] = useState(false)
+  const [errorId, setErrorId] = useState<string>('loading')
 
   useEffect(() => {
+    // Gerar ID do erro no cliente
+    setErrorId(Date.now().toString(36))
+    
     // Log do erro para debug
     if (err) {
       console.error('Error captured by _error.tsx:', {
@@ -136,9 +134,11 @@ const ErrorPage: NextPage<ErrorProps> = ({ statusCode, hasGetInitialPropsRun, er
 
         <div className="text-sm text-gray-500 dark:text-gray-500">
           <p>Se o problema persistir, entre em contato com o suporte.</p>
-          <p className="mt-1 font-mono text-xs">
-            Error ID: {Date.now().toString(36)}
-          </p>
+          {typeof window !== 'undefined' && (
+            <p className="mt-1 font-mono text-xs">
+              Error ID: {errorId}
+            </p>
+          )}
         </div>
       </div>
     </div>

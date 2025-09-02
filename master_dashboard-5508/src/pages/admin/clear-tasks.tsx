@@ -8,6 +8,9 @@ import { Alert } from '../../components/ui/Alert';
 import { Grid } from '../../components/ui/Grid';
 import { Stack } from '../../components/ui/Stack';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { ProtectedRoute } from '../../components/auth/ProtectedRoute';
+import { AuthProvider } from '../../contexts/AuthContext';
 import { McpApi, type TaskStats, type ClearTasksResponse } from '../../services/mcp-api';
 
 interface ClearResult {
@@ -16,12 +19,13 @@ interface ClearResult {
   message: string;
 }
 
-const ClearTasksPage: React.FC = () => {
+const ClearTasksPageContent: React.FC = () => {
   const [stats, setStats] = useState<TaskStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ClearResult | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   // Carregar estatísticas reais das tasks
   const loadStats = async () => {
@@ -45,6 +49,11 @@ const ClearTasksPage: React.FC = () => {
     }
   };
 
+  // Abrir diálogo de confirmação
+  const openConfirmDialog = () => {
+    setConfirmDialogOpen(true);
+  };
+
   // Executar operação real de limpeza
   const handleClearTasks = async () => {
     if (!stats) return;
@@ -64,6 +73,7 @@ const ClearTasksPage: React.FC = () => {
       };
       
       setLastResult(result);
+      setConfirmDialogOpen(false);
       
       if (clearResponse.success) {
         // Recarregar estatísticas após limpeza bem-sucedida
@@ -291,15 +301,14 @@ const ClearTasksPage: React.FC = () => {
                   <Stack direction="horizontal" spacing="sm" align="center">
                     <Button
                       variant="danger"
-                      onClick={handleClearTasks}
-                      loading={clearing}
+                      onClick={openConfirmDialog}
                       leftIcon={
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       }
                     >
-                      {clearing ? 'Limpando Tasks...' : `Limpar ${stats?.toBeCleared} Tasks`}
+                      {`Limpar ${stats?.toBeCleared} Tasks`}
                     </Button>
 
                     <Button
@@ -337,7 +346,30 @@ const ClearTasksPage: React.FC = () => {
           </CardBody>
         </Card>
       </Stack>
+
+      {/* Diálogo de Confirmação */}
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        title="Limpar Tasks"
+        message={`Tem certeza que deseja remover permanentemente ${stats?.toBeCleared} tasks do sistema? Esta operação irá limpar ${stats?.completed} tasks concluídas e ${stats?.failed} tasks com falha. Esta ação não pode ser desfeita.`}
+        confirmText={`Limpar ${stats?.toBeCleared} Tasks`}
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleClearTasks}
+        onCancel={() => setConfirmDialogOpen(false)}
+        loading={clearing}
+      />
     </AdminLayout>
+  );
+};
+
+const ClearTasksPage: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ProtectedRoute requireAdmin>
+        <ClearTasksPageContent />
+      </ProtectedRoute>
+    </AuthProvider>
   );
 };
 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste da API de Tasks</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .online { background: #d4edda; color: #155724; }
+        .offline { background: #f8d7da; color: #721c24; }
+        .tasks-list {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .task-item {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste da API de Tasks</h1>
+    
+    <button onclick="testApi()">Testar API</button>
+    <button onclick="testCors()">Testar CORS</button>
+    
+    <div id="status"></div>
+    <div id="results"></div>
+    <div id="tasks-list" class="tasks-list" style="display:none;"></div>
+    
+    <script>
+        const API_URL = 'http://localhost:8888/api/v1';
+        
+        async function testApi() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            const tasksListDiv = document.getElementById('tasks-list');
+            
+            statusDiv.innerHTML = '<div class="status">Testando conexão com a API...</div>';
+            
+            try {
+                // Teste 1: Health Check
+                const healthResponse = await fetch(`${API_URL}/health`);
+                const healthData = await healthResponse.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status online">
+                        ✅ API Online - Status: ${healthData.status}
+                    </div>
+                `;
+                
+                // Teste 2: Buscar Tasks
+                resultsDiv.innerHTML = '<p>Buscando tasks...</p>';
+                
+                const tasksResponse = await fetch(`${API_URL}/tasks`);
+                const tasks = await tasksResponse.json();
+                
+                resultsDiv.innerHTML = `
+                    <h3>Resposta da API:</h3>
+                    <p>Total de tasks: ${tasks.length}</p>
+                    <pre>${JSON.stringify(tasks.slice(0, 3), null, 2)}</pre>
+                `;
+                
+                // Mostrar lista de tasks
+                tasksListDiv.style.display = 'block';
+                tasksListDiv.innerHTML = `
+                    <h3>Tasks Encontradas (${tasks.length}):</h3>
+                    ${tasks.slice(0, 10).map(task => `
+                        <div class="task-item">
+                            <strong>ID: ${task.id}</strong> - Status: ${task.status}<br>
+                            <small>Criada em: ${new Date(task.created_at).toLocaleString('pt-BR')}</small>
+                        </div>
+                    `).join('')}
+                `;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status offline">
+                        ❌ Erro ao conectar com a API
+                    </div>
+                `;
+                
+                resultsDiv.innerHTML = `
+                    <h3>Detalhes do erro:</h3>
+                    <pre>${error.message}</pre>
+                    <p>Verifique se a API está rodando em http://localhost:8888</p>
+                `;
+                
+                tasksListDiv.style.display = 'none';
+            }
+        }
+        
+        async function testCors() {
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = '<h3>Testando CORS...</h3>';
+            
+            try {
+                const response = await fetch(`${API_URL}/tasks`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML += `
+                        <p style="color: green;">✅ CORS funcionando corretamente!</p>
+                        <p>Headers de resposta:</p>
+                        <pre>${Array.from(response.headers.entries()).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
+                    `;
+                } else {
+                    resultsDiv.innerHTML += `
+                        <p style="color: red;">❌ Erro de resposta: ${response.status}</p>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <p style="color: red;">❌ Erro de CORS: ${error.message}</p>
+                    <p>Certifique-se de que a API permite requisições de http://localhost:5508</p>
+                `;
+            }
+        }
+        
+        // Testar automaticamente ao carregar
+        window.onload = () => {
+            testApi();
+        };
+    </script>
+</body>
+</html>
