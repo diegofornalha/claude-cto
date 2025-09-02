@@ -193,13 +193,13 @@ const SubmitOrchestration: React.FC = () => {
       />
 
       {error && (
-        <Alert variant="danger" title="Erro de validação" className="mb-6">
+        <Alert severity="error" title="Erro de validação" className="mb-6">
           {error}
         </Alert>
       )}
 
       {success && (
-        <Alert variant="success" title="Orquestração criada!" className="mb-6">
+        <Alert severity="success" title="Orquestração criada!" className="mb-6">
           Sua orquestração foi criada com sucesso. Redirecionando para o dashboard...
         </Alert>
       )}

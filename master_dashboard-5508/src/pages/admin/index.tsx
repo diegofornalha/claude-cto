@@ -136,7 +136,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Alertas */}
       {error && (
-        <Alert variant="danger" className="mb-6" onClose={() => setError(null)}>
+        <Alert severity="error" className="mb-6" onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -149,14 +149,14 @@ const AdminDashboard: React.FC = () => {
           </h2>
           
           {loading ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={4} gap="lg">
               <SkeletonMetricCard />
               <SkeletonMetricCard />
               <SkeletonMetricCard />
               <SkeletonMetricCard />
             </Grid>
           ) : metrics ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={4} gap="lg">
               <Card>
                 <CardBody>
                   <div className="flex items-center justify-between">
@@ -272,9 +272,9 @@ const AdminDashboard: React.FC = () => {
             Ações Rápidas
           </h2>
           
-          <Grid cols="1" responsive={{ md: 2, lg: 3 }} gap="lg">
+          <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
             {quickActions.map((action) => (
-              <Card key={action.id} hover>
+              <Card key={action.id} hoverable>
                 <CardBody>
                   <Stack spacing="sm">
                     <Stack direction="horizontal" spacing="sm" align="center">

@@ -46,7 +46,7 @@ export function MetricCard({
   }
 
   return (
-    <Card hover className={className}>
+    <Card hoverable className={className}>
       <CardContent>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-medium text-neutral-600 dark:text-neutral-400">

@@ -1,8 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/": "pages/index.js",
-  "/admin": "pages/admin.js",
-  "/sitemap": "pages/sitemap.js"
-}
+{"/_app":"pages/_app.js","/admin/clear-tasks":"pages/admin/clear-tasks.html","/_error":"pages/_error.js","/admin/delete-task":"pages/admin/delete-task.html","/admin/health":"pages/admin/health.html","/admin":"pages/admin.html","/example-layout":"pages/example-layout.html","/index-complex":"pages/index-complex.html","/":"pages/index.html","/orchestration":"pages/orchestration.html","/orchestration/submit":"pages/orchestration/submit.html","/sitemap":"pages/sitemap.html","/tasks/create":"pages/tasks/create.html","/tasks":"pages/tasks.html","/tasks/list":"pages/tasks/list.html","/_document":"pages/_document.js","/404":"pages/404.html"}

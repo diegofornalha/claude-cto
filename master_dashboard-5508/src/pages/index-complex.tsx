@@ -11,10 +11,12 @@ import {
   Users
 } from 'lucide-react'
 
+// Layout Components
+import { PageLayout } from '@/components/layout/PageLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+
 // Design System Components
 import {
-  PageLayout,
-  PageHeader,
   Card,
   CardContent,
   CardHeader,
@@ -24,8 +26,7 @@ import {
   MetricCard,
   SystemHealthCard,
   Skeleton,
-  SkeletonCard,
-  SkeletonMetricCard
+  SkeletonCard
 } from '@/components/ui'
 
 // Types
@@ -230,7 +231,7 @@ export default function DashboardHome() {
             {isLoading ? (
               // Loading skeleton
               Array.from({ length: 4 }, (_, index) => (
-                <SkeletonMetricCard key={index} />
+                <SkeletonCard key={index} />
               ))
             ) : (
               <>
@@ -310,8 +311,7 @@ export default function DashboardHome() {
                   transition={{ duration: 0.2 }}
                 >
                   <Card 
-                    hover 
-                    interactive
+                    hoverable
                     onClick={() => window.location.href = action.href}
                   >
                     <CardContent>

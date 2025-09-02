@@ -124,14 +124,14 @@ const ClearTasksPage: React.FC = () => {
       <Stack spacing="lg">
         {/* Alertas */}
         {error && (
-          <Alert variant="danger" onClose={() => setError(null)}>
+          <Alert severity="error" onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {lastResult && (
           <Alert 
-            variant={lastResult.success ? 'success' : 'danger'}
+            severity={lastResult.success ? 'success' : 'error'}
             onClose={() => setLastResult(null)}
           >
             {lastResult.message}
@@ -145,7 +145,7 @@ const ClearTasksPage: React.FC = () => {
           </h2>
           
           {loading ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={4} gap="lg">
               {Array.from({ length: 4 }, (_, i) => (
                 <Card key={i}>
                   <CardBody>
@@ -157,7 +157,7 @@ const ClearTasksPage: React.FC = () => {
               ))}
             </Grid>
           ) : stats ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={4} gap="lg">
               <Card>
                 <CardBody>
                   <div className="flex items-center justify-between">

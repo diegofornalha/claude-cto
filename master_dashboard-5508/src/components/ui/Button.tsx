@@ -1,7 +1,7 @@
 import React, { ReactNode, ButtonHTMLAttributes } from 'react';
 import { tokens } from '../../utils/design-tokens';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';

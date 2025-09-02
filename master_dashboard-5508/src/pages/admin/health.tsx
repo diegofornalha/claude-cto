@@ -198,7 +198,7 @@ const SystemHealthPage: React.FC = () => {
 
       {/* Alertas */}
       {error && (
-        <Alert variant="danger" className="mb-6" onClose={() => setError(null)}>
+        <Alert severity="error" className="mb-6" onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -252,7 +252,7 @@ const SystemHealthPage: React.FC = () => {
           </h2>
           
           {loading ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {Array.from({ length: 6 }, (_, i) => (
                 <Card key={i}>
                   <CardBody>
@@ -264,7 +264,7 @@ const SystemHealthPage: React.FC = () => {
               ))}
             </Grid>
           ) : healthData ? (
-            <Grid cols="1" responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {healthData.metrics.map((metric) => (
                 <Card key={metric.id}>
                   <CardBody>
@@ -313,7 +313,7 @@ const SystemHealthPage: React.FC = () => {
                 .map((metric) => (
                   <Alert
                     key={metric.id}
-                    variant={metric.status === 'critical' ? 'danger' : 'warning'}
+                    severity={metric.status === 'critical' ? 'error' : 'warning'}
                   >
                     <div>
                       <strong>{metric.name}:</strong> {metric.description}

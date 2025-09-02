@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Página Corrigida</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .status {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        h1 {
+            color: #333;
+        }
+        .info {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Página Corrigida com Sucesso!</h1>
+        
+        <div class="status">
+            <p class="success">✅ Build compilado com sucesso</p>
+            <p class="success">✅ Página /orchestration/submit está funcionando (HTTP 200)</p>
+            <p class="success">✅ Todos os componentes foram corrigidos</p>
+        </div>
+
+        <div class="info">
+            <strong>Correções aplicadas:</strong>
+            <ul style="margin: 10px 0;">
+                <li>Imports de PageLayout e PageHeader corrigidos</li>
+                <li>Componentes Input e Select adicionados ao index.ts</li>
+                <li>Props de Alert mudadas de 'variant' para 'severity'</li>
+                <li>Props de Grid corrigidas (cols, colsMd, colsLg ao invés de responsive)</li>
+                <li>Props de Stack corrigidas (spacing ao invés de gap, horizontal ao invés de row)</li>
+                <li>Props de Card corrigidas (hoverable ao invés de hover)</li>
+                <li>Props de Skeleton simplificadas</li>
+                <li>Props de GridItem corrigidas (colSpan ao invés de span)</li>
+                <li>CardBody não usa mais padding (apenas Card)</li>
+                <li>Tipos no design-tokens.ts corrigidos</li>
+            </ul>
+        </div>
+
+        <h2>Preview da Página:</h2>
+        <iframe src="http://localhost:5508/orchestration/submit"></iframe>
+    </div>
+</body>
+</html>

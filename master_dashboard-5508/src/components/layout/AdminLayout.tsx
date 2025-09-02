@@ -58,7 +58,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageLayout className={`flex-1 overflow-auto ${className}`} noPadding>
+        <PageLayout 
+          className={`flex-1 overflow-auto ${className}`} 
+          padding="none"
+          showHeader={false}
+        >
           <div className="p-4 sm:p-6 lg:p-8">
             {children}
           </div>

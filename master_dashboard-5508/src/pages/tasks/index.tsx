@@ -120,7 +120,7 @@ const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
   return (
     <Card hoverable>
       <CardBody>
-        <Stack direction="vertical" gap="sm">
+        <Stack direction="vertical" spacing="sm">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -166,7 +166,7 @@ export default function TasksDashboard() {
   }, []);
 
   const headerActions = (
-    <Stack direction="horizontal" gap="sm">
+    <Stack direction="horizontal" spacing="sm">
       <Button variant="outline" size="md">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -190,7 +190,7 @@ export default function TasksDashboard() {
         actions={headerActions}
       />
 
-      <Stack direction="vertical" gap="lg">
+      <Stack direction="vertical" spacing="lg">
         {/* Métricas */}
         <section>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -275,13 +275,13 @@ export default function TasksDashboard() {
           </div>
 
           {loading ? (
-            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {[...Array(6)].map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
             </Grid>
           ) : (
-            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {recentTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
@@ -295,10 +295,10 @@ export default function TasksDashboard() {
             Ações Rápidas
           </h2>
           
-          <Grid cols={1} responsive={{ md: 2, lg: 4 }} gap="md">
+          <Grid cols={1} colsMd={2} colsLg={4} gap="md">
             <Card hoverable>
               <CardBody>
-                <Stack direction="vertical" gap="sm" align="center">
+                <Stack direction="vertical" spacing="sm" align="center">
                   <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
                     <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -316,7 +316,7 @@ export default function TasksDashboard() {
 
             <Card hoverable>
               <CardBody>
-                <Stack direction="vertical" gap="sm" align="center">
+                <Stack direction="vertical" spacing="sm" align="center">
                   <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-full">
                     <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -334,7 +334,7 @@ export default function TasksDashboard() {
 
             <Card hoverable>
               <CardBody>
-                <Stack direction="vertical" gap="sm" align="center">
+                <Stack direction="vertical" spacing="sm" align="center">
                   <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
                     <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -352,7 +352,7 @@ export default function TasksDashboard() {
 
             <Card hoverable>
               <CardBody>
-                <Stack direction="vertical" gap="sm" align="center">
+                <Stack direction="vertical" spacing="sm" align="center">
                   <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-full">
                     <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />

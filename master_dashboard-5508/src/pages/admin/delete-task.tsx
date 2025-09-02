@@ -210,21 +210,21 @@ const DeleteTaskPage: React.FC = () => {
       <Stack spacing="lg">
         {/* Alertas */}
         {error && (
-          <Alert variant="danger" onClose={() => setError(null)}>
+          <Alert severity="error" onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {deleteResult && (
           <Alert 
-            variant={deleteResult.success ? 'success' : 'danger'}
+            severity={deleteResult.success ? 'success' : 'error'}
             onClose={() => setDeleteResult(null)}
           >
             {deleteResult.message}
           </Alert>
         )}
 
-        <Grid cols="1" responsive={{ lg: 2 }} gap="lg">
+        <Grid cols={1} colsLg={2} gap="lg">
           {/* Lista de Tasks */}
           <Card>
             <CardHeader>
@@ -398,7 +398,7 @@ const DeleteTaskPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <Alert variant="warning">
+                    <Alert severity="warning">
                       Tasks em execução não podem ser removidas. Aguarde a conclusão ou falha da task.
                     </Alert>
                   )}

@@ -191,7 +191,7 @@ export default function CreateTask() {
     templates.filter(t => t.category === category);
 
   const headerActions = (
-    <Stack direction="horizontal" gap="sm">
+    <Stack direction="horizontal" spacing="sm">
       <Button variant="outline" size="md">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -209,9 +209,9 @@ export default function CreateTask() {
         actions={headerActions}
       />
 
-      <Grid cols={1} responsive={{ lg: 3 }} gap="lg">
+      <Grid cols={1} colsLg={3} gap="lg">
         {/* Templates Section */}
-        <GridItem span={1}>
+        <GridItem colSpan={1}>
           <Card>
             <CardHeader>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -222,7 +222,7 @@ export default function CreateTask() {
               </p>
             </CardHeader>
             <CardBody>
-              <Stack direction="vertical" gap="md">
+              <Stack direction="vertical" spacing="md">
                 {['development', 'testing', 'deployment', 'analysis'].map(category => {
                   const categoryTemplates = getTemplatesByCategory(category as TaskTemplate['category']);
                   if (categoryTemplates.length === 0) return null;
@@ -232,7 +232,7 @@ export default function CreateTask() {
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
                         {category}
                       </h4>
-                      <Stack direction="vertical" gap="xs">
+                      <Stack direction="vertical" spacing="xs">
                         {categoryTemplates.map(template => (
                           <Card
                             key={template.id}
@@ -244,7 +244,7 @@ export default function CreateTask() {
                             }`}
                             onClick={() => applyTemplate(template)}
                           >
-                            <CardBody padding="sm">
+                            <CardBody>
                               <h5 className="font-medium text-gray-900 dark:text-white text-sm">
                                 {template.name}
                               </h5>
@@ -264,7 +264,7 @@ export default function CreateTask() {
         </GridItem>
 
         {/* Form Section */}
-        <GridItem span={1} responsive={{ lg: 2 }}>
+        <GridItem colSpan={1}>
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -295,9 +295,9 @@ export default function CreateTask() {
             
             <CardBody>
               <form onSubmit={handleSubmit}>
-                <Stack direction="vertical" gap="lg">
+                <Stack direction="vertical" spacing="lg">
                   {/* Basic Fields */}
-                  <Grid cols={1} responsive={{ md: 2 }} gap="md">
+                  <Grid cols={1} colsMd={2} gap="md">
                     <Input
                       label="Identificador"
                       placeholder="ex: refactor-auth-module"
@@ -363,7 +363,7 @@ export default function CreateTask() {
 
                   {/* Advanced Fields */}
                   {showAdvanced && (
-                    <Stack direction="vertical" gap="md">
+                    <Stack direction="vertical" spacing="md">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           System Prompt (Opcional)
@@ -377,7 +377,7 @@ export default function CreateTask() {
                         />
                       </div>
 
-                      <Grid cols={1} responsive={{ md: 2 }} gap="md">
+                      <Grid cols={1} colsMd={2} gap="md">
                         <Input
                           label="Grupo de Orquestração (Opcional)"
                           placeholder="ex: deployment-batch-1"

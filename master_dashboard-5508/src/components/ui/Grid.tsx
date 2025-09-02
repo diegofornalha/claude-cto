@@ -236,3 +236,48 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(
 );
 
 GridItem.displayName = 'GridItem';
+
+// Specialized grid for metrics/stats cards
+export const MetricsGrid = forwardRef<HTMLDivElement, Omit<GridProps, 'cols' | 'gap'>>((
+  { children, className = '', ...props },
+  ref
+) => {
+  return (
+    <Grid
+      ref={ref}
+      cols={1}
+      colsSm={2}
+      colsMd={3}
+      colsLg={5}
+      gap="lg"
+      className={className}
+      {...props}
+    >
+      {children}
+    </Grid>
+  );
+});
+
+MetricsGrid.displayName = 'MetricsGrid';
+
+// Specialized grid for content layout
+export const ContentGrid = forwardRef<HTMLDivElement, Omit<GridProps, 'cols' | 'gap'>>((
+  { children, className = '', ...props },
+  ref
+) => {
+  return (
+    <Grid
+      ref={ref}
+      cols={1}
+      colsMd={2}
+      colsLg={3}
+      gap="lg"
+      className={className}
+      {...props}
+    >
+      {children}
+    </Grid>
+  );
+});
+
+ContentGrid.displayName = 'ContentGrid';

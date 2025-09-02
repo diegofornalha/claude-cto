@@ -175,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       )}
                     </button>
                     
-                    {!isCollapsed && isExpanded && (
+                    {!isCollapsed && isExpanded && item.children && (
                       <ul className="mt-1 ml-8 space-y-1">
                         {item.children.map((child) => {
                           const childActive = isActiveRoute(child.href);

@@ -136,3 +136,60 @@ export const SkeletonCard = forwardRef<HTMLDivElement, SkeletonCardProps>(
 );
 
 SkeletonCard.displayName = 'SkeletonCard';
+
+// Skeleton for metric cards
+export const SkeletonMetricCard = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className = '', ...props }, ref) => {
+    return (
+      <div ref={ref} className={`bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md ${className}`} {...props}>
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <Skeleton variant="text" width="60%" height="14px" className="mb-2" />
+            <Skeleton variant="text" width="80px" height="32px" />
+          </div>
+          <Skeleton variant="circular" width={48} height={48} />
+        </div>
+      </div>
+    );
+  }
+);
+
+SkeletonMetricCard.displayName = 'SkeletonMetricCard';
+
+// Skeleton for system health component
+export const SkeletonSystemHealth = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className = '', ...props }, ref) => {
+    return (
+      <div ref={ref} className={`space-y-4 ${className}`} {...props}>
+        <Skeleton variant="text" width="40%" height="24px" className="mb-4" />
+        <div className="grid grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton variant="text" width="60%" height="14px" />
+              <Skeleton variant="rectangular" height="8px" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+);
+
+SkeletonSystemHealth.displayName = 'SkeletonSystemHealth';
+
+// Skeleton for quick action buttons
+export const SkeletonQuickAction = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className = '', ...props }, ref) => {
+    return (
+      <div ref={ref} className={`bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md ${className}`} {...props}>
+        <div className="flex flex-col items-center space-y-3">
+          <Skeleton variant="circular" width={48} height={48} />
+          <Skeleton variant="text" width="70%" height="16px" />
+          <Skeleton variant="text" width="90%" height="12px" />
+        </div>
+      </div>
+    );
+  }
+);
+
+SkeletonQuickAction.displayName = 'SkeletonQuickAction';

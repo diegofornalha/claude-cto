@@ -134,7 +134,7 @@ const OrchestrationDashboard: React.FC = () => {
   };
 
   const headerActions = (
-    <Stack direction="row" spacing="md">
+    <Stack direction="horizontal" spacing="md">
       <Button 
         variant="outline" 
         onClick={() => window.location.reload()}
@@ -159,12 +159,12 @@ const OrchestrationDashboard: React.FC = () => {
           actions={headerActions}
         />
         
-        <Grid columns={{ base: 1, lg: 2 }} spacing="lg">
+        <Grid cols={1} colsLg={2} gap="lg">
           {[...Array(4)].map((_, i) => (
             <Card key={i} padding="lg">
-              <Skeleton height="h-6" width="w-3/4" className="mb-4" />
-              <Skeleton height="h-4" width="w-full" className="mb-2" />
-              <Skeleton height="h-4" width="w-5/6" />
+              <Skeleton className="h-6 w-3/4 mb-4" />
+              <Skeleton className="h-4 w-full mb-2" />
+              <Skeleton className="h-4 w-5/6" />
             </Card>
           ))}
         </Grid>
@@ -181,7 +181,7 @@ const OrchestrationDashboard: React.FC = () => {
           actions={headerActions}
         />
         
-        <Alert variant="danger" title="Erro ao carregar dados">
+        <Alert severity="error" title="Erro ao carregar dados">
           {error}
         </Alert>
       </PageLayout>
@@ -205,7 +205,7 @@ const OrchestrationDashboard: React.FC = () => {
           
           <Stack spacing="lg">
             {groups.map((group) => (
-              <Card key={group.name} padding="lg" hover>
+              <Card key={group.name} padding="lg" hoverable>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -280,9 +280,9 @@ const OrchestrationDashboard: React.FC = () => {
             Tarefas Individuais
           </h2>
           
-          <Grid columns={{ base: 1, md: 2, lg: 3 }} spacing="lg">
+          <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
             {tasks.map((task) => (
-              <Card key={task.id} padding="md" hover>
+              <Card key={task.id} padding="md" hoverable>
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="font-medium text-gray-900 dark:text-white truncate">
                     {task.identifier}

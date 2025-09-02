@@ -298,7 +298,7 @@ export default function TasksList() {
       className={selectedTasks.has(task.id) ? 'ring-2 ring-blue-500' : ''}
     >
       <CardBody>
-        <Stack direction="vertical" gap="sm">
+        <Stack direction="vertical" spacing="sm">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               <input
@@ -380,7 +380,7 @@ export default function TasksList() {
   );
 
   const headerActions = (
-    <Stack direction="horizontal" gap="sm">
+    <Stack direction="horizontal" spacing="sm">
       <Button variant="outline" size="md">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -432,7 +432,7 @@ export default function TasksList() {
         actions={headerActions}
       />
 
-      <Stack direction="vertical" gap="lg">
+      <Stack direction="vertical" spacing="lg">
         {/* Filters */}
         <Card>
           <CardHeader>
@@ -441,17 +441,12 @@ export default function TasksList() {
             </h3>
           </CardHeader>
           <CardBody>
-            <Grid cols={1} responsive={{ md: 2, lg: 4, xl: 6 }} gap="md">
-              <GridItem span={1} responsive={{ xl: 2 }}>
+            <Grid cols={1} colsMd={2} colsLg={4} colsXl={6} gap="md">
+              <GridItem colSpan={1}>
                 <Input
                   placeholder="Buscar por nome, descrição ou diretório..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  leftIcon={
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  }
                   fullWidth
                 />
               </GridItem>
@@ -508,7 +503,7 @@ export default function TasksList() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {selectedTasks.size} task(s) selecionada(s)
                 </p>
-                <Stack direction="horizontal" gap="sm">
+                <Stack direction="horizontal" spacing="sm">
                   <Button variant="outline" size="sm">
                     Cancelar Tasks
                   </Button>
@@ -527,14 +522,14 @@ export default function TasksList() {
         {/* Tasks List/Grid */}
         {loading ? (
           viewMode === 'grid' ? (
-            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {[...Array(6)].map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
             </Grid>
           ) : (
             <Card>
-              <CardBody padding="none">
+              <CardBody>
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-4">
@@ -590,7 +585,7 @@ export default function TasksList() {
               </div>
             </div>
             
-            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+            <Grid cols={1} colsMd={2} colsLg={3} gap="lg">
               {filteredTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
@@ -611,7 +606,7 @@ export default function TasksList() {
                 </span>
               </div>
             </CardHeader>
-            <CardBody padding="none">
+            <CardBody>
               {filteredTasks.map((task) => (
                 <TaskListItem key={task.id} task={task} />
               ))}

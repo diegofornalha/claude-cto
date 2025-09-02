@@ -1,13 +1,7 @@
 import React from 'react';
-import {
-  PageLayout,
-  PageHeader,
-  Navigation,
-  Sidebar,
-  Breadcrumbs,
-  Footer,
-  BreadcrumbItem
-} from '@/components/layout';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Sidebar } from '@/components/layout/Sidebar';
 
 const ExampleLayout = () => {
   // Exemplo de itens de navegação
@@ -72,12 +66,12 @@ const ExampleLayout = () => {
     }
   ];
 
-  // Exemplo de breadcrumbs
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' },
-    { label: 'Pages', href: '/pages' },
-    { label: 'Example Layout' }
-  ];
+  // Exemplo de breadcrumbs (removido por enquanto)
+  // const breadcrumbs = [
+  //   { label: 'Home', href: '/' },
+  //   { label: 'Pages', href: '/pages' },
+  //   { label: 'Example Layout' }
+  // ];
 
   // Exemplo de ações do header
   const headerActions = (
@@ -111,8 +105,7 @@ const ExampleLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Navigation Bar */}
-      <Navigation items={navItems} />
+      {/* Navigation Bar - removido temporariamente */}
       
       <div className="flex">
         {/* Sidebar */}
@@ -125,7 +118,7 @@ const ExampleLayout = () => {
             <PageHeader
               title="Example Layout Page"
               description="This page demonstrates all the layout components working together in a cohesive design."
-              breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+              // breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
               actions={headerActions}
             />
             
@@ -195,8 +188,7 @@ const ExampleLayout = () => {
             </div>
           </PageLayout>
           
-          {/* Footer */}
-          <Footer showSystemStatus={true} />
+          {/* Footer - removido temporariamente */}
         </div>
       </div>
     </div>

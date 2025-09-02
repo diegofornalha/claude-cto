@@ -209,10 +209,10 @@ export const getSpacing = (size: keyof typeof designTokens.spacing) => designTok
 export const getColor = (color: string, shade?: number) => {
   const [colorName, colorShade] = color.split('-')
   if (shade) {
-    return designTokens.colors[colorName as keyof typeof designTokens.colors]?.[shade as keyof typeof designTokens.colors.primary]
+    return (designTokens.colors[colorName as keyof typeof designTokens.colors] as any)?.[shade]
   }
   if (colorShade) {
-    return designTokens.colors[colorName as keyof typeof designTokens.colors]?.[colorShade as keyof typeof designTokens.colors.primary]
+    return (designTokens.colors[colorName as keyof typeof designTokens.colors] as any)?.[colorShade]
   }
   return designTokens.colors[colorName as keyof typeof designTokens.colors]
 }
