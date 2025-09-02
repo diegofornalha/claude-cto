@@ -57,11 +57,27 @@ async function testDashboardAPI() {
     // 1. Health Check
     console.log('1. 🏥 Health Check');
     try {
-        const health = await makeRequest('/../health');
-        if (health.status === 200) {
+        // Fazer chamada direta para /health (não através de /api/v1)
+        const healthOptions = {
+            hostname: '127.0.0.1',
+            port: 8888,
+            path: '/health',
+            method: 'GET'
+        };
+        
+        const healthResponse = await new Promise((resolve, reject) => {
+            const req = http.request(healthOptions, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => resolve({ status: res.statusCode, data }));
+            });
+            req.on('error', reject);
+            req.end();
+        });
+        if (healthResponse.status === 200) {
             console.log('   ✅ API está online\n');
         } else {
-            console.log(`   ❌ API retornou status ${health.status}\n`);
+            console.log(`   ❌ API retornou status ${healthResponse.status}\n`);
             return;
         }
     } catch (error) {
@@ -107,8 +123,10 @@ async function testDashboardAPI() {
     console.log('\n================================================');
     console.log('💡 DIAGNÓSTICO:');
     
-    if (tasks.status === 200 && Array.isArray(tasks.data)) {
-        const realCount = tasks.data.length;
+    // Refazer a chamada para ter acesso aos dados
+    const tasksResponse = await makeRequest('/tasks');
+    if (tasksResponse.status === 200 && Array.isArray(tasksResponse.data)) {
+        const realCount = tasksResponse.data.length;
         if (realCount === 8) {
             console.log('✅ A API está retornando a contagem correta (8 tarefas)');
             console.log('❓ Se o dashboard mostra 42, pode ser:');
