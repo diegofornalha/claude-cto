@@ -7,47 +7,59 @@ import { Card, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
+import { McpApi, SystemStats } from '../services/mcp-api';
 
-interface SystemMetrics {
-  totalTasks: number;
-  runningTasks: number;
-  completedTasks: number;
-  failedTasks: number;
-  uptime: string;
-  memoryUsage: number;
-}
 
 const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  const [metrics, setMetrics] = useState<SystemStats | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
     setCurrentTime(new Date());
     
-    // Simulate loading metrics
-    const timer = setTimeout(() => {
-      setMetrics({
-        totalTasks: 247,
-        runningTasks: 12,
-        completedTasks: 189,
-        failedTasks: 8,
-        uptime: '7d 14h 32m',
-        memoryUsage: 67.4
-      });
-      setIsLoading(false);
-    }, 1200);
+    // Carregar dados reais da API
+    const loadMetrics = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const stats = await McpApi.getSystemStats();
+        setMetrics(stats);
+      } catch (err) {
+        console.error('Erro ao carregar métricas:', err);
+        setError('Erro ao carregar métricas do sistema');
+        // Se houver erro, define valores padrão zerados
+        setMetrics({
+          total_tasks: 0,
+          running_tasks: 0,
+          completed_tasks: 0,
+          failed_tasks: 0,
+          average_execution_time: 0,
+          success_rate: 0,
+          memory_usage: 0,
+          cpu_usage: 0
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMetrics();
 
     // Update time every second
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
+    // Recarregar métricas a cada 30 segundos
+    const metricsInterval = setInterval(loadMetrics, 30000);
+
     return () => {
-      clearTimeout(timer);
       clearInterval(timeInterval);
+      clearInterval(metricsInterval);
     };
   }, []);
 
@@ -96,7 +108,7 @@ const HomePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Total de Tasks</p>
-                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{metrics?.totalTasks}</p>
+                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{metrics?.total_tasks || 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
                     <span className="text-white text-xl">📋</span>
@@ -110,7 +122,7 @@ const HomePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Em Execução</p>
-                    <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{metrics?.runningTasks}</p>
+                    <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{metrics?.running_tasks || 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
                     <span className="text-white text-xl">⚡</span>
@@ -124,7 +136,7 @@ const HomePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Concluídas</p>
-                    <p className="text-3xl font-bold text-green-900 dark:text-green-100">{metrics?.completedTasks}</p>
+                    <p className="text-3xl font-bold text-green-900 dark:text-green-100">{metrics?.completed_tasks || 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
                     <span className="text-white text-xl">✅</span>
@@ -138,7 +150,7 @@ const HomePage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Falhas</p>
-                    <p className="text-3xl font-bold text-red-900 dark:text-red-100">{metrics?.failedTasks}</p>
+                    <p className="text-3xl font-bold text-red-900 dark:text-red-100">{metrics?.failed_tasks || 0}</p>
                   </div>
                   <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
                     <span className="text-white text-xl">❌</span>

@@ -2,10 +2,6 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/orchestration": "pages/orchestration.js",
-  "/analytics": "pages/analytics.js",
-  "/monitor": "pages/monitor.js",
-  "/monitor/activities": "pages/monitor/activities.js",
-  "/settings": "pages/settings.js",
-  "/": "pages/index.js"
+  "/monitor/notifications": "pages/monitor/notifications.js",
+  "/monitor/activities": "pages/monitor/activities.js"
 }

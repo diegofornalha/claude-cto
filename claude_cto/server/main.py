@@ -928,7 +928,7 @@ async def update_notification_settings(
             config_data = models.NotificationConfigCreate(
                 enabled=settings.get("enabled", True),
                 webhook_url=None,
-                webhook_type="discord" if settings.get("email") else None,
+                webhook_type="discord",  # Sempre usar um valor padrão válido
                 alert_thresholds={},
                 event_types=event_types
             )
