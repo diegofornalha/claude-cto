@@ -3,10 +3,7 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/orchestration": "pages/orchestration.js",
-  "/monitor": "pages/monitor.js",
   "/analytics": "pages/analytics.js",
-  "/settings": "pages/settings.js",
-  "/monitor/activities": "pages/monitor/activities.js",
-  "/": "pages/index.js",
-  "/admin/delete-task": "pages/admin/delete-task.js"
+  "/monitor": "pages/monitor.js",
+  "/monitor/activities": "pages/monitor/activities.js"
 }

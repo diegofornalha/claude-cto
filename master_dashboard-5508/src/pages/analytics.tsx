@@ -33,6 +33,7 @@ const Analytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'completed' | 'created' | 'failed' | 'running'>('all');
 
   const fetchAnalyticsData = async () => {
     try {
@@ -345,10 +346,112 @@ const Analytics: React.FC = () => {
 
       {/* Atividades Recentes */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Atividades Recentes</h2>
-        {analyticsData.recentActivities.length > 0 ? (
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">
+            Atividades Recentes
+            {analyticsData.recentActivities.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                ({analyticsData.recentActivities.filter(activity => {
+                  if (activityFilter === 'all') return true;
+                  const activityType = activity.type.toLowerCase();
+                  const message = activity.message.toLowerCase();
+                  switch (activityFilter) {
+                    case 'created':
+                      return activityType.includes('create') || message.includes('criada') || message.includes('criado');
+                    case 'running':
+                      return activityType.includes('start') || activityType.includes('running') || message.includes('iniciada') || message.includes('executando');
+                    case 'completed':
+                      return activityType.includes('complete') || message.includes('completada') || message.includes('concluída');
+                    case 'failed':
+                      return activityType.includes('fail') || activityType.includes('error') || message.includes('falhou') || message.includes('erro');
+                    default:
+                      return true;
+                  }
+                }).length} {activityFilter === 'all' ? 'total' : 'filtradas'})
+              </span>
+            )}
+          </h2>
+          
+          {/* Abas de filtro */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActivityFilter('all')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                activityFilter === 'all'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Todas
+            </button>
+            <button
+              onClick={() => setActivityFilter('created')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                activityFilter === 'created'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Criadas
+            </button>
+            <button
+              onClick={() => setActivityFilter('running')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                activityFilter === 'running'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Executando
+            </button>
+            <button
+              onClick={() => setActivityFilter('completed')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                activityFilter === 'completed'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Completas
+            </button>
+            <button
+              onClick={() => setActivityFilter('failed')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                activityFilter === 'failed'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Falhadas
+            </button>
+          </div>
+        </div>
+        
+        {(() => {
+          // Filtrar atividades baseado no filtro selecionado
+          const filteredActivities = analyticsData.recentActivities.filter(activity => {
+            if (activityFilter === 'all') return true;
+            
+            const activityType = activity.type.toLowerCase();
+            const message = activity.message.toLowerCase();
+            
+            switch (activityFilter) {
+              case 'created':
+                return activityType.includes('create') || message.includes('criada') || message.includes('criado');
+              case 'running':
+                return activityType.includes('start') || activityType.includes('running') || message.includes('iniciada') || message.includes('executando');
+              case 'completed':
+                return activityType.includes('complete') || message.includes('completada') || message.includes('concluída');
+              case 'failed':
+                return activityType.includes('fail') || activityType.includes('error') || message.includes('falhou') || message.includes('erro');
+              default:
+                return true;
+            }
+          });
+          
+          return filteredActivities.length > 0 ? (
           <div className="space-y-2">
-            {analyticsData.recentActivities.map(activity => (
+            {filteredActivities.map(activity => (
               <div key={activity.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -371,8 +474,16 @@ const Analytics: React.FC = () => {
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400">Nenhuma atividade recente</p>
-        )}
+          <p className="text-gray-500 dark:text-gray-400">
+            {activityFilter === 'all' 
+              ? 'Nenhuma atividade recente'
+              : `Nenhuma atividade ${activityFilter === 'created' ? 'criada' : 
+                  activityFilter === 'running' ? 'em execução' :
+                  activityFilter === 'completed' ? 'completa' : 
+                  activityFilter === 'failed' ? 'falhada' : ''}`}
+          </p>
+        );
+        })()}
       </div>
 
       {/* Links de Navegação */}

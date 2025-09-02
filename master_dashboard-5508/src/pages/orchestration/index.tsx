@@ -52,14 +52,18 @@ const OrchestrationDashboard: React.FC = () => {
         const groupsData: OrchestrationGroup[] = await Promise.all(
           orchestrationsData.map(async (orch) => {
             // Buscar detalhes completos incluindo tasks
-            const fullOrch = await McpApi.getOrchestration(orch.orchestration_id);
+            const fullOrch = await McpApi.getOrchestration(orch.id);
             const progress = orch.total_tasks > 0 
               ? Math.round((orch.completed_tasks / orch.total_tasks) * 100) 
               : 0;
             
+            // API retorna 'id' diretamente, não 'orchestration_id'
+            const orchId = orch.id;
+            console.log('=== DEBUG: Mapeando orquestração ID:', orchId, 'Status:', orch.status);
+            
             return {
-              id: orch.orchestration_id,
-              name: `orchestration_${orch.orchestration_id}`,
+              id: orchId,
+              name: `orchestration_${orchId}`,
               status: orch.status,
               tasks: fullOrch?.tasks || [],
               created_at: orch.created_at,
@@ -108,22 +112,41 @@ const OrchestrationDashboard: React.FC = () => {
   };
 
   const handleDeleteClick = (orchestrationId: number) => {
+    console.log('=== DEBUG DELETE CLICK ===');
+    console.log('Orquestração ID clicado:', orchestrationId);
+    console.log('Tipo do ID:', typeof orchestrationId);
     setConfirmDelete({ isOpen: true, id: orchestrationId });
   };
 
   const handleDeleteConfirm = async () => {
-    if (!confirmDelete.id) return;
+    console.log('=== DEBUG DELETE CONFIRM ===');
+    console.log('confirmDelete state:', confirmDelete);
+    console.log('ID a ser deletado:', confirmDelete.id);
+    
+    if (!confirmDelete.id) {
+      console.error('ID não encontrado no confirmDelete!');
+      return;
+    }
 
     setDeletingId(confirmDelete.id);
     try {
-      const success = await McpApi.deleteOrchestration(confirmDelete.id);
+      console.log('Chamando API para deletar ID:', confirmDelete.id);
+      const success = await McpApi.cancelOrchestration(confirmDelete.id);
       if (success) {
-        // Remover da lista local
-        setGroups(prev => prev.filter(g => g.id !== confirmDelete.id));
-        setOrchestrations(prev => prev.filter(o => o.orchestration_id !== confirmDelete.id));
+        // Atualizar status para cancelado e recarregar dados
+        alert('Orquestração cancelada com sucesso!');
         setConfirmDelete({ isOpen: false, id: null });
+        // Recarregar dados para refletir o status atualizado
+        handleRefresh();
       } else {
-        alert('Erro ao deletar orquestração');
+        // Encontrar a orquestração para verificar seu status
+        const orch = orchestrations.find(o => o.id === confirmDelete.id);
+        if (orch && (orch.status === 'completed' || orch.status === 'failed')) {
+          alert(`Não é possível cancelar orquestração #${confirmDelete.id} porque ela já está ${orch.status === 'completed' ? 'concluída' : 'com falha'}. Apenas orquestrações em execução podem ser canceladas.`);
+        } else {
+          alert('Erro ao cancelar orquestração. Apenas orquestrações em execução podem ser canceladas.');
+        }
+        setConfirmDelete({ isOpen: false, id: null });
       }
     } catch (err) {
       console.error('Erro ao deletar:', err);
@@ -146,14 +169,14 @@ const OrchestrationDashboard: React.FC = () => {
       
       const groupsData: OrchestrationGroup[] = await Promise.all(
         orchestrationsData.map(async (orch) => {
-          const fullOrch = await McpApi.getOrchestration(orch.orchestration_id);
+          const fullOrch = await McpApi.getOrchestration(orch.id);
           const progress = orch.total_tasks > 0 
             ? Math.round((orch.completed_tasks / orch.total_tasks) * 100) 
             : 0;
           
           return {
-            id: orch.orchestration_id,
-            name: `orchestration_${orch.orchestration_id}`,
+            id: orch.id,
+            name: `orchestration_${orch.id}`,
             status: orch.status,
             tasks: fullOrch?.tasks || [],
             created_at: orch.created_at,
@@ -205,7 +228,7 @@ const OrchestrationDashboard: React.FC = () => {
         
         <Grid cols={1} colsLg={2} gap="lg">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} padding="lg">
+            <Card key={`skeleton-${i}`} padding="lg">
               <Skeleton className="h-6 w-3/4 mb-4" />
               <Skeleton className="h-4 w-full mb-2" />
               <Skeleton className="h-4 w-5/6" />
@@ -254,7 +277,7 @@ const OrchestrationDashboard: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                        Orquestração #{group.id}
+                        Orquestração #{group.id} {/* DEBUG: {JSON.stringify({id: group.id, type: typeof group.id})} */}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {group.total_tasks} tarefas • Criado em {formatDate(group.created_at)}
@@ -268,15 +291,28 @@ const OrchestrationDashboard: React.FC = () => {
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {group.progress}%
                       </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(group.id)}
-                        disabled={deletingId === group.id}
-                        className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
-                      >
-                        Deletar
-                      </Button>
+                      {group.status === 'running' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(group.id)}
+                          disabled={deletingId === group.id}
+                          className="text-orange-600 hover:text-orange-700 border-orange-300 hover:border-orange-400"
+                          title="Cancelar orquestração em execução"
+                        >
+                          Cancelar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={true}
+                          className="text-gray-400 border-gray-200 cursor-not-allowed"
+                          title={`Orquestração ${group.status === 'completed' ? 'concluída' : group.status === 'failed' ? 'com falha' : group.status}. Apenas orquestrações em execução podem ser canceladas.`}
+                        >
+                          {group.status === 'cancelled' ? 'Cancelada' : 'Finalizada'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                   
@@ -304,30 +340,53 @@ const OrchestrationDashboard: React.FC = () => {
                   </div>
                 </CardHeader>
 
+                {/* Mensagem para orquestrações com falha sem detalhes de tarefas */}
+                {group.failed_tasks > 0 && (!group.tasks || group.tasks.length === 0) && (
+                  <CardBody>
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        ⚠️ Esta orquestração falhou. Detalhes das tarefas não disponíveis.
+                      </p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        Verifique os logs do servidor para mais informações sobre o erro.
+                      </p>
+                    </div>
+                  </CardBody>
+                )}
+
                 {group.tasks && group.tasks.length > 0 && (
                   <CardBody>
                     <div className="space-y-3">
                       {group.tasks.map((task) => (
                         <div 
                           key={task.task_id}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                          className={`flex items-center justify-between p-3 rounded-lg ${
+                            task.status === 'failed' 
+                              ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' 
+                              : 'bg-gray-50 dark:bg-gray-800'
+                          }`}
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium text-sm text-gray-900 dark:text-white">
-                                {task.identifier}
+                                {task.identifier || `Task #${task.task_id}`}
                               </span>
                               {getStatusBadge(task.status)}
                             </div>
                             {task.depends_on && task.depends_on.length > 0 && (
                               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                Depende de: {task.depends_on.join(', ')}
+                                <span className="font-semibold">Depende de:</span> {task.depends_on.join(', ')}
                               </p>
                             )}
                             {task.error_message && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                Erro: {task.error_message}
-                              </p>
+                              <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800">
+                                <p className="text-xs text-red-800 dark:text-red-300 font-semibold mb-1">
+                                  ❌ Erro:
+                                </p>
+                                <p className="text-xs text-red-700 dark:text-red-400 font-mono">
+                                  {task.error_message}
+                                </p>
+                              </div>
                             )}
                             {task.started_at && (
                               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
@@ -392,11 +451,11 @@ const OrchestrationDashboard: React.FC = () => {
       {/* Diálogo de confirmação */}
       <ConfirmDialog
         isOpen={confirmDelete.isOpen}
-        title="Deletar Orquestração"
-        message={`Tem certeza que deseja deletar a orquestração #${confirmDelete.id}? Esta ação não pode ser desfeita.`}
-        confirmText="Deletar"
-        cancelText="Cancelar"
-        variant="danger"
+        title="Cancelar Orquestração"
+        message={`Tem certeza que deseja cancelar a orquestração #${confirmDelete.id}? Isso irá parar todas as tasks em execução.`}
+        confirmText="Cancelar Orquestração"
+        cancelText="Voltar"
+        variant="warning"
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
         loading={deletingId !== null}

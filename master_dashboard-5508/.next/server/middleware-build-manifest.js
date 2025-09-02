@@ -9,12 +9,6 @@ self.__BUILD_MANIFEST = {
   "lowPriorityFiles": [],
   "rootMainFiles": [],
   "pages": {
-    "/": [
-      "static/chunks/webpack.js",
-      "static/chunks/vendors.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/index.js"
-    ],
     "/_app": [
       "static/chunks/webpack.js",
       "static/chunks/vendors.js",
@@ -26,12 +20,6 @@ self.__BUILD_MANIFEST = {
       "static/chunks/vendors.js",
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
-    ],
-    "/admin/delete-task": [
-      "static/chunks/webpack.js",
-      "static/chunks/vendors.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/admin/delete-task.js"
     ],
     "/analytics": [
       "static/chunks/webpack.js",
@@ -56,12 +44,6 @@ self.__BUILD_MANIFEST = {
       "static/chunks/vendors.js",
       "static/chunks/main.js",
       "static/chunks/pages/orchestration.js"
-    ],
-    "/settings": [
-      "static/chunks/webpack.js",
-      "static/chunks/vendors.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/settings.js"
     ]
   },
   "ampFirstPages": []

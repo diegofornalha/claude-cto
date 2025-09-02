@@ -79,7 +79,8 @@ export interface OrchestrationTask {
 }
 
 export interface Orchestration {
-  orchestration_id: number;
+  id: number;  // API retorna 'id', não 'orchestration_id'
+  orchestration_id?: number;  // Mantendo para compatibilidade temporária
   status: 'pending' | 'running' | 'completed' | 'failed';
   created_at: string;
   started_at?: string;
@@ -563,7 +564,7 @@ class McpApiService {
   async cancelOrchestration(id: number): Promise<boolean> {
     try {
       await this.request(`/orchestrations/${id}/cancel`, {
-        method: 'POST',
+        method: 'DELETE',  // Corrigido: usar DELETE ao invés de POST
       });
       return true;
     } catch (error) {
@@ -572,15 +573,18 @@ class McpApiService {
     }
   }
 
-  // Deletar uma orquestração
+  // Deletar/Cancelar uma orquestração
   async deleteOrchestration(id: number): Promise<boolean> {
     try {
-      await this.request(`/orchestrations/${id}`, {
+      // Primeiro tentar cancelar a orquestração (único endpoint disponível)
+      // Nota: O backend não tem endpoint de DELETE, apenas CANCEL
+      await this.request(`/orchestrations/${id}/cancel`, {
         method: 'DELETE',
       });
       return true;
     } catch (error) {
-      console.error('Erro ao deletar orquestração:', error);
+      console.error('Erro ao cancelar/deletar orquestração:', error);
+      // Como não há endpoint de delete real, retornar false
       return false;
     }
   }
