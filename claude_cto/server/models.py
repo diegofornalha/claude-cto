@@ -68,6 +68,7 @@ class OrchestrationDB(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None  # Soft delete timestamp
     total_tasks: int = 0
     completed_tasks: int = 0
     failed_tasks: int = 0

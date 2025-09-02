@@ -17,8 +17,7 @@ interface NavigationProps {
 const defaultNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/' },
   { label: 'Tasks', href: '/tasks' },
-  { label: 'Orchestration', href: '/orchestration' },
-  { label: 'Admin', href: '/admin' }
+  { label: 'Orchestration', href: '/orchestration' }
 ];
 
 export const Navigation: React.FC<NavigationProps> = ({

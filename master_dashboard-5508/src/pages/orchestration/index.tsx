@@ -19,7 +19,7 @@ import { McpApi, Orchestration, OrchestrationTask } from '../../services/mcp-api
 interface OrchestrationGroup {
   id: number;
   name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   tasks: OrchestrationTask[];
   created_at: string;
   started_at?: string;

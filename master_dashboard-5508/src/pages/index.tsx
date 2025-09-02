@@ -223,42 +223,6 @@ const HomePage: React.FC = () => {
             </CardBody>
           </Card>
 
-          {/* Admin Card */}
-          <Card hoverable className="group hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300 transform hover:-translate-y-1 bg-white dark:bg-gray-800 border-2 hover:border-emerald-500/50">
-            <CardBody className="p-8">
-              <div className="flex items-center mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-200">
-                  <span className="text-2xl">⚙️</span>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Admin
-                  </h2>
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Sistema & Config</p>
-                </div>
-              </div>
-              
-              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                Configurações avançadas e monitoramento completo da saúde do sistema.
-              </p>
-              
-              <Stack direction="vertical" spacing="sm">
-                <Link href="/admin" className="group/link flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200">
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">🎛️ Dashboard Admin</span>
-                  <svg className="w-4 h-4 text-gray-400 group-hover/link:text-emerald-500 group-hover/link:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-                <Link href="/admin/health" className="group/link flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200">
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">💚 System Health</span>
-                  <svg className="w-4 h-4 text-gray-400 group-hover/link:text-emerald-500 group-hover/link:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </Stack>
-            </CardBody>
-          </Card>
-
           {/* Monitor Card */}
           <Card hoverable className="group hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 transform hover:-translate-y-1 bg-white dark:bg-gray-800 border-2 hover:border-amber-500/50">
             <CardBody className="p-8">

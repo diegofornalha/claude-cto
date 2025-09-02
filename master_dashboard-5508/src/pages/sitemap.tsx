@@ -22,15 +22,6 @@ const Sitemap: React.FC = () => {
     { path: '/monitor/activities', name: '📊 Feed de Atividades', category: 'Monitor' },
     { path: '/monitor/notifications', name: '🔔 Configurações de Notificações', category: 'Monitor' },
     
-    // Admin
-    { path: '/admin', name: '🔐 Admin Dashboard', category: 'Admin' },
-    { path: '/admin/tasks', name: '📋 Gerenciar Tasks', category: 'Admin' },
-    { path: '/admin/health', name: '💚 System Health', category: 'Admin' },
-    { path: '/admin/clear-tasks', name: '🧹 Clear Tasks', category: 'Admin' },
-    { path: '/admin/delete-task', name: '🗑️ Delete Task', category: 'Admin' },
-    { path: '/admin/logs', name: '📄 System Logs', category: 'Admin' },
-    { path: '/admin/settings', name: '🛠️ Admin Settings', category: 'Admin' },
-    
     // Analytics
     { path: '/analytics', name: '📊 Analytics Dashboard', category: 'Analytics' },
     

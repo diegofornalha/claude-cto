@@ -73,7 +73,7 @@ export default function TasksList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [bulkActionMode, setBulkActionMode] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
