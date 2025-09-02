@@ -445,7 +445,7 @@ const SubmitOrchestrationPage: React.FC = () => {
                     fitView
                     attributionPosition="bottom-left"
                   >
-                    <Background variant="cross" gap={12} size={1} />
+                    <Background gap={12} size={1} />
                     <Controls />
                     <MiniMap 
                       nodeColor={(node) => {

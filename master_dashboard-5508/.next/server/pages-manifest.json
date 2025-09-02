@@ -2,8 +2,9 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/admin/health": "pages/admin/health.js",
-  "/admin": "pages/admin.js",
+  "/": "pages/index.js",
+  "/tasks": "pages/tasks.js",
+  "/tasks/create": "pages/tasks/create.js",
   "/admin/clear-tasks": "pages/admin/clear-tasks.js",
-  "/sitemap": "pages/sitemap.js"
+  "/admin/delete-task": "pages/admin/delete-task.js"
 }

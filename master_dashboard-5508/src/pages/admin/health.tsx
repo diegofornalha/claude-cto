@@ -15,7 +15,7 @@ import {
   Database,
   Globe
 } from 'lucide-react'
-import HealthMetrics from '@/components/admin/HealthMetrics'
+import HealthMetricsFixed from '@/components/admin/HealthMetricsFixed'
 import SystemGauges from '@/components/admin/SystemGauges'
 import AdminLayout from '@/components/admin/AdminLayout'
 import Head from 'next/head'
@@ -545,7 +545,7 @@ export default function HealthPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <HealthMetrics refreshInterval={refreshInterval} />
+            <HealthMetricsFixed refreshInterval={refreshInterval} />
           </motion.div>
 
           {/* System Info */}

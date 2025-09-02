@@ -6,6 +6,7 @@ import React, { useEffect } from 'react'
 import Link from 'next/link'
 import Head from 'next/head'
 import { useTaskStore } from '@/store/taskStore'
+import TaskErrorBoundary from '@/components/TaskErrorBoundary'
 
 const TasksPage: React.FC = () => {
   const { tasks, isLoading, lastError, fetchTasks } = useTaskStore()
@@ -28,7 +29,7 @@ const TasksPage: React.FC = () => {
   }
 
   return (
-    <>
+    <TaskErrorBoundary>
       <Head>
         <title>Tarefas - Claude CTO Dashboard</title>
       </Head>
@@ -140,7 +141,7 @@ const TasksPage: React.FC = () => {
           )}
         </div>
       </div>
-    </>
+    </TaskErrorBoundary>
   )
 }
 

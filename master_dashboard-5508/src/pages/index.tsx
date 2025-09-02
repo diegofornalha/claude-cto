@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense, startTransition, useDeferredValue } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Activity, 
@@ -27,6 +27,45 @@ interface SystemHealth {
   status: 'healthy' | 'warning' | 'critical'
 }
 
+// Componentes de fallback para erros de loading
+const LoadingCardFallback = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      </div>
+      <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+    </div>
+  </div>
+)
+
+const SystemHealthFallback = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 mb-8">
+    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-4"></div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+    </div>
+  </div>
+)
+
+const QuickActionsFallback = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    {[1, 2, 3].map((i) => (
+      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center mb-4">
+          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+          <div className="ml-3 h-6 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+        </div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+      </div>
+    ))}
+  </div>
+)
+
 export default function DashboardMaster() {
   const [taskMetrics, setTaskMetrics] = useState<TaskMetrics>({
     total: 0,
@@ -43,32 +82,54 @@ export default function DashboardMaster() {
   })
 
   const [darkMode, setDarkMode] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  // Usar useDeferredValue para adiar atualizações não críticas
+  const deferredTaskMetrics = useDeferredValue(taskMetrics)
+
+  // Effect para verificar hidratação
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
+    if (!isHydrated) return // Só executar após hidratação completa
+    
     // Simular carregamento de dados
     const loadMetrics = async () => {
       try {
-        // Aqui conectaria com a API real
-        setTaskMetrics({
-          total: 127,
-          completed: 98,
-          running: 4,
-          failed: 2
+        // Usar startTransition para marcar atualizações não urgentes
+        startTransition(() => {
+          setTaskMetrics({
+            total: 127,
+            completed: 98,
+            running: 4,
+            failed: 2
+          })
         })
       } catch (error) {
         console.error('Erro ao carregar métricas:', error)
       }
     }
 
-    loadMetrics()
-    const interval = setInterval(loadMetrics, 30000) // Atualizar a cada 30s
+    // Aguardar um pouco antes de iniciar as atualizações
+    const timeoutId = setTimeout(() => {
+      loadMetrics()
+      const interval = setInterval(loadMetrics, 30000) // Atualizar a cada 30s
+      
+      return () => clearInterval(interval)
+    }, 100)
     
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearTimeout(timeoutId)
+  }, [isHydrated])
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+    startTransition(() => {
+      setDarkMode(!darkMode)
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('dark')
+      }
+    })
   }
 
   const cardVariants = {
@@ -77,13 +138,13 @@ export default function DashboardMaster() {
   }
 
   const LoadingCard = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 animate-pulse">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2 animate-pulse"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
         </div>
-        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
       </div>
     </div>
   )
@@ -159,7 +220,7 @@ export default function DashboardMaster() {
           <Suspense fallback={<LoadingCard />}>
             <MetricCard
               title="Total de Tasks"
-              value={taskMetrics.total}
+              value={deferredTaskMetrics.total}
               icon={Activity}
               color="bg-gradient-to-r from-blue-500 to-blue-600"
               change={12}
@@ -168,7 +229,7 @@ export default function DashboardMaster() {
           <Suspense fallback={<LoadingCard />}>
             <MetricCard
               title="Completadas"
-              value={taskMetrics.completed}
+              value={deferredTaskMetrics.completed}
               icon={CheckCircle}
               color="bg-gradient-to-r from-green-500 to-green-600"
               change={8}
@@ -177,7 +238,7 @@ export default function DashboardMaster() {
           <Suspense fallback={<LoadingCard />}>
             <MetricCard
               title="Em Execução"
-              value={taskMetrics.running}
+              value={deferredTaskMetrics.running}
               icon={Clock}
               color="bg-gradient-to-r from-yellow-500 to-orange-500"
             />
@@ -185,7 +246,7 @@ export default function DashboardMaster() {
           <Suspense fallback={<LoadingCard />}>
             <MetricCard
               title="Falhas"
-              value={taskMetrics.failed}
+              value={deferredTaskMetrics.failed}
               icon={AlertCircle}
               color="bg-gradient-to-r from-red-500 to-red-600"
               change={-25}

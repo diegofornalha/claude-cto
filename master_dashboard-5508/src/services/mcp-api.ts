@@ -1,6 +1,7 @@
 /**
  * Serviço de API para integração com MCP Claude-CTO
  * Versão estendida com filtros, analytics e funcionalidades avançadas
+ * Incluindo retry, interceptors e cache inteligente
  */
 
 import { 
@@ -14,9 +15,226 @@ import {
   TaskModel
 } from '@/types/task'
 
+// Tipos para retry e cache
+interface RetryOptions {
+  maxRetries: number
+  baseDelay: number
+  maxDelay: number
+}
+
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+  ttl: number
+}
+
 export class MCPApiService {
   private static readonly BASE_URL = process.env.NEXT_PUBLIC_MCP_API_URL || 'http://localhost:8888/api/v1'
   private static readonly TIMEOUT = 30000 // 30 segundos
+  
+  // Configuração de retry
+  private static readonly DEFAULT_RETRY_OPTIONS: RetryOptions = {
+    maxRetries: 3,
+    baseDelay: 1000, // 1 segundo
+    maxDelay: 10000  // 10 segundos máximo
+  }
+  
+  // Cache em memória para requisições GET
+  private static cache = new Map<string, CacheEntry<any>>()
+  private static readonly DEFAULT_CACHE_TTL = 30000 // 30 segundos
+  
+  // Eventos para monitoramento da API
+  private static listeners: Array<(event: 'connected' | 'disconnected' | 'error', data?: any) => void> = []
+
+  /**
+   * Adiciona listener para eventos da API
+   */
+  static addEventListener(listener: (event: 'connected' | 'disconnected' | 'error', data?: any) => void) {
+    this.listeners.push(listener)
+  }
+  
+  /**
+   * Remove listener de eventos da API
+   */
+  static removeEventListener(listener: (event: 'connected' | 'disconnected' | 'error', data?: any) => void) {
+    const index = this.listeners.indexOf(listener)
+    if (index > -1) {
+      this.listeners.splice(index, 1)
+    }
+  }
+  
+  /**
+   * Emite evento para todos os listeners
+   */
+  private static emitEvent(event: 'connected' | 'disconnected' | 'error', data?: any) {
+    this.listeners.forEach(listener => {
+      try {
+        listener(event, data)
+      } catch (error) {
+        console.error('Erro no listener de evento da API:', error)
+      }
+    })
+  }
+  
+  /**
+   * Implementa retry com exponential backoff
+   */
+  private static async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    options: Partial<RetryOptions> = {}
+  ): Promise<T> {
+    const { maxRetries, baseDelay, maxDelay } = { ...this.DEFAULT_RETRY_OPTIONS, ...options }
+    
+    let lastError: Error
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await operation()
+        
+        // Se chegou aqui, a operação foi bem-sucedida
+        if (attempt > 0) {
+          this.emitEvent('connected')
+        }
+        
+        return result
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Erro desconhecido')
+        
+        // Se não há mais tentativas, emite evento de erro
+        if (attempt === maxRetries) {
+          this.emitEvent('error', lastError)
+          break
+        }
+        
+        // Calcula delay com exponential backoff
+        const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay)
+        
+        // Adiciona jitter (variação aleatória) para evitar thundering herd
+        const jitter = Math.random() * 0.1 * delay
+        const finalDelay = delay + jitter
+        
+        console.warn(`Tentativa ${attempt + 1}/${maxRetries + 1} falhou, tentando novamente em ${Math.round(finalDelay)}ms:`, lastError.message)
+        
+        await new Promise(resolve => setTimeout(resolve, finalDelay))
+      }
+    }
+    
+    throw lastError!
+  }
+  
+  /**
+   * Gerencia cache para requisições GET
+   */
+  private static getCacheKey(url: string, params?: any): string {
+    return params ? `${url}?${JSON.stringify(params)}` : url
+  }
+  
+  private static getFromCache<T>(key: string): T | null {
+    const entry = this.cache.get(key)
+    if (!entry) return null
+    
+    const now = Date.now()
+    if (now - entry.timestamp > entry.ttl) {
+      this.cache.delete(key)
+      return null
+    }
+    
+    return entry.data
+  }
+  
+  private static setCache<T>(key: string, data: T, ttl: number = this.DEFAULT_CACHE_TTL) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    })
+  }
+  
+  /**
+   * Limpa cache
+   */
+  static clearCache() {
+    this.cache.clear()
+  }
+  
+  /**
+   * Limpa cache expirado
+   */
+  static cleanExpiredCache() {
+    const now = Date.now()
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > entry.ttl) {
+        this.cache.delete(key)
+      }
+    }
+  }
+  
+  /**
+   * Interceptor para requisições com tratamento de erro unificado
+   */
+  private static async fetchWithInterceptor(
+    url: string, 
+    options: RequestInit = {},
+    useCache: boolean = false,
+    cacheTtl: number = this.DEFAULT_CACHE_TTL
+  ): Promise<Response> {
+    // Verificar cache apenas para GET requests
+    if (useCache && (!options.method || options.method === 'GET')) {
+      const cacheKey = this.getCacheKey(url)
+      const cachedData = this.getFromCache<any>(cacheKey)
+      if (cachedData) {
+        // Retornar uma resposta simulada do cache
+        return new Response(JSON.stringify(cachedData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+    }
+    
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT)
+    
+    try {
+      const response = await this.retryWithBackoff(async () => {
+        const fetchResponse = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...options.headers
+          }
+        })
+        
+        // Se não foi bem-sucedida, lança erro para tentar novamente
+        if (!fetchResponse.ok) {
+          const errorText = await fetchResponse.text()
+          throw new Error(`HTTP ${fetchResponse.status}: ${errorText || fetchResponse.statusText}`)
+        }
+        
+        return fetchResponse
+      })
+      
+      clearTimeout(timeoutId)
+      
+      // Salvar no cache se for GET request bem-sucedida
+      if (useCache && (!options.method || options.method === 'GET') && response.ok) {
+        const cacheKey = this.getCacheKey(url)
+        const data = await response.clone().json()
+        this.setCache(cacheKey, data, cacheTtl)
+      }
+      
+      return response
+    } catch (error) {
+      clearTimeout(timeoutId)
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Tempo limite excedido na requisição')
+      }
+      
+      throw error
+    }
+  }
 
   /**
    * Verifica saúde da API
@@ -25,18 +243,18 @@ export class MCPApiService {
     const startTime = Date.now()
     
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      const response = await this.fetchWithInterceptor(
+        `${this.BASE_URL.replace('/api/v1', '')}/health`,
+        {},
+        true, // usar cache
+        5000  // cache de 5 segundos para health check
+      )
       
-      const response = await fetch(`${this.BASE_URL.replace('/api/v1', '')}/health`, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
       const responseTime = Date.now() - startTime
       
       if (response.ok) {
         const serverInfo = await response.json()
+        this.emitEvent('connected')
         return {
           status: true,
           response_time: responseTime,
@@ -45,6 +263,7 @@ export class MCPApiService {
         }
       }
       
+      this.emitEvent('disconnected')
       return {
         status: false,
         response_time: responseTime,
@@ -52,9 +271,11 @@ export class MCPApiService {
         error: `Status: ${response.status}`
       }
     } catch (error) {
+      const responseTime = Date.now() - startTime
+      this.emitEvent('error', error)
       return {
         status: false,
-        response_time: Date.now() - startTime,
+        response_time: responseTime,
         timestamp: new Date().toISOString(),
         error: error instanceof Error ? error.message : 'Erro desconhecido'
       }
@@ -66,31 +287,19 @@ export class MCPApiService {
    */
   static async createTask(taskData: TaskData): Promise<Task> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks`, {
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/tasks`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(taskData),
-        signal: controller.signal
+        body: JSON.stringify(taskData)
       })
       
-      clearTimeout(timeoutId)
+      const task = await response.json()
       
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Erro ao criar tarefa: ${response.status} - ${errorText}`)
-      }
+      // Invalidar cache de listagem de tarefas
+      this.invalidateTaskListCache()
       
-      return await response.json()
+      return task
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao criar tarefa')
-      }
-      throw error
+      throw new Error(`Erro ao criar tarefa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -99,27 +308,13 @@ export class MCPApiService {
    */
   static async listTasks(limit?: number): Promise<Task[]> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      
       const url = limit ? `${this.BASE_URL}/tasks?limit=${limit}` : `${this.BASE_URL}/tasks`
-      const response = await fetch(url, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao listar tarefas: ${response.status}`)
-      }
+      const response = await this.fetchWithInterceptor(url, {}, true) // usar cache
       
       const data = await response.json()
       return data.tasks || []
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao listar tarefas')
-      }
-      throw error
+      throw new Error(`Erro ao listar tarefas: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -128,25 +323,16 @@ export class MCPApiService {
    */
   static async getTaskStatus(taskIdentifier: string): Promise<Task> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks/${taskIdentifier}`, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao obter status da tarefa: ${response.status}`)
-      }
+      const response = await this.fetchWithInterceptor(
+        `${this.BASE_URL}/tasks/${taskIdentifier}`,
+        {},
+        true, // usar cache
+        10000 // cache de 10 segundos para status de tarefa
+      )
       
       return await response.json()
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao obter status')
-      }
-      throw error
+      throw new Error(`Erro ao obter status da tarefa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -155,26 +341,18 @@ export class MCPApiService {
    */
   static async clearTasks(): Promise<{ cleared: number }> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks/clear`, {
-        method: 'POST',
-        signal: controller.signal
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/tasks/clear`, {
+        method: 'POST'
       })
       
-      clearTimeout(timeoutId)
+      const result = await response.json()
       
-      if (!response.ok) {
-        throw new Error(`Erro ao limpar tarefas: ${response.status}`)
-      }
+      // Invalidar cache após limpeza
+      this.invalidateTaskListCache()
       
-      return await response.json()
+      return result
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao limpar tarefas')
-      }
-      throw error
+      throw new Error(`Erro ao limpar tarefas: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -183,22 +361,18 @@ export class MCPApiService {
    */
   static async deleteTask(taskIdentifier: string): Promise<boolean> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks/${taskIdentifier}`, {
-        method: 'DELETE',
-        signal: controller.signal
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/tasks/${taskIdentifier}`, {
+        method: 'DELETE'
       })
       
-      clearTimeout(timeoutId)
+      if (response.ok) {
+        // Invalidar cache após deleção
+        this.invalidateTaskListCache()
+      }
       
       return response.ok
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao deletar tarefa')
-      }
-      throw error
+      throw new Error(`Erro ao deletar tarefa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -207,30 +381,19 @@ export class MCPApiService {
    */
   static async submitOrchestration(orchestrationGroup: string): Promise<any> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT)
-      
-      const response = await fetch(`${this.BASE_URL}/orchestration/submit`, {
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/orchestration/submit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ orchestration_group: orchestrationGroup }),
-        signal: controller.signal
+        body: JSON.stringify({ orchestration_group: orchestrationGroup })
       })
       
-      clearTimeout(timeoutId)
+      const result = await response.json()
       
-      if (!response.ok) {
-        throw new Error(`Erro ao submeter orquestração: ${response.status}`)
-      }
+      // Invalidar cache após submissão
+      this.invalidateTaskListCache()
       
-      return await response.json()
+      return result
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao submeter orquestração')
-      }
-      throw error
+      throw new Error(`Erro ao submeter orquestração: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
@@ -247,6 +410,19 @@ export class MCPApiService {
     }
   }
 
+  /**
+   * Invalida cache relacionado à listagem de tarefas
+   */
+  private static invalidateTaskListCache() {
+    const keysToInvalidate: string[] = []
+    for (const key of this.cache.keys()) {
+      if (key.includes('/tasks') || key.includes('/analytics')) {
+        keysToInvalidate.push(key)
+      }
+    }
+    keysToInvalidate.forEach(key => this.cache.delete(key))
+  }
+
   // Novos métodos para funcionalidades avançadas
 
   /**
@@ -258,9 +434,6 @@ export class MCPApiService {
     filtered: number 
   }> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-
       const params = new URLSearchParams()
       
       // Paginação
@@ -287,15 +460,11 @@ export class MCPApiService {
         }
       }
 
-      const response = await fetch(`${this.BASE_URL}/tasks/filtered?${params}`, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao listar tarefas filtradas: ${response.status}`)
-      }
+      const response = await this.fetchWithInterceptor(
+        `${this.BASE_URL}/tasks/filtered?${params}`,
+        {},
+        true // usar cache
+      )
       
       const data = await response.json()
       return {
@@ -304,10 +473,6 @@ export class MCPApiService {
         filtered: data.filtered || 0
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido ao filtrar tarefas')
-      }
-      
       // Fallback para API simples
       console.warn('API de filtros não disponível, usando fallback local:', error)
       const allTasks = await this.listTasks(limit)
@@ -398,14 +563,12 @@ export class MCPApiService {
    */
   static async getTaskAnalytics(): Promise<TaskAnalyticsData> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-
-      const response = await fetch(`${this.BASE_URL}/tasks/analytics`, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
+      const response = await this.fetchWithInterceptor(
+        `${this.BASE_URL}/tasks/analytics`,
+        {},
+        true, // usar cache
+        300000 // cache de 5 minutos para analytics
+      )
       
       if (response.ok) {
         return await response.json()
@@ -505,32 +668,22 @@ export class MCPApiService {
    */
   static async bulkDeleteTasks(taskIdentifiers: string[]): Promise<BulkActionResult> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks/bulk/delete`, {
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/tasks/bulk/delete`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ task_identifiers: taskIdentifiers }),
-        signal: controller.signal
+        body: JSON.stringify({ task_identifiers: taskIdentifiers })
       })
       
-      clearTimeout(timeoutId)
-      
       if (response.ok) {
-        return await response.json()
+        const result = await response.json()
+        // Invalidar cache após deleção em lote
+        this.invalidateTaskListCache()
+        return result
       }
       
       // Fallback: deletar uma por uma
       console.warn('Bulk delete não disponível, deletando individualmente')
       return await this.bulkDeleteFallback(taskIdentifiers)
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido na deleção em lote')
-      }
-      
       // Fallback: deletar uma por uma
       return await this.bulkDeleteFallback(taskIdentifiers)
     }
@@ -572,25 +725,19 @@ export class MCPApiService {
    */
   static async bulkUpdateTaskStatus(taskIdentifiers: string[], newStatus: TaskStatus): Promise<BulkActionResult> {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-      
-      const response = await fetch(`${this.BASE_URL}/tasks/bulk/status`, {
+      const response = await this.fetchWithInterceptor(`${this.BASE_URL}/tasks/bulk/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ 
           task_identifiers: taskIdentifiers,
           status: newStatus 
-        }),
-        signal: controller.signal
+        })
       })
       
-      clearTimeout(timeoutId)
-      
       if (response.ok) {
-        return await response.json()
+        const result = await response.json()
+        // Invalidar cache após atualização
+        this.invalidateTaskListCache()
+        return result
       }
       
       // Para esta implementação, vamos simular o sucesso
@@ -601,10 +748,6 @@ export class MCPApiService {
         failed: 0
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Tempo limite excedido na atualização em lote')
-      }
-      
       // Simular sucesso parcial
       return {
         success: false,
@@ -713,5 +856,66 @@ export class MCPApiService {
     return [headers, ...rows]
       .map(row => row.join('\t'))
       .join('\n')
+  }
+
+  /**
+   * Método para modo offline - retorna dados mock
+   */
+  static async getMockData(): Promise<{
+    health: ApiHealthData
+    tasks: Task[]
+    analytics: TaskAnalyticsData
+  }> {
+    const mockTasks: Task[] = [
+      {
+        id: 'mock-1',
+        task_identifier: 'exemplo_analise',
+        status: 'completed' as TaskStatus,
+        model: 'sonnet' as TaskModel,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
+        execution_prompt: 'Analisar arquivos Python do projeto',
+        working_directory: '/projeto',
+        orchestration_group: 'analise_projeto',
+        depends_on: [],
+        _metadata: {
+          estimated_complexity: 'Média',
+          complexity_score: 45,
+          tags: ['análise', 'python']
+        }
+      },
+      {
+        id: 'mock-2',
+        task_identifier: 'refatoracao_codigo',
+        status: 'running' as TaskStatus,
+        model: 'opus' as TaskModel,
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 1800000).toISOString(),
+        execution_prompt: 'Refatorar código complexo identificado na análise',
+        working_directory: '/projeto',
+        orchestration_group: 'analise_projeto',
+        depends_on: ['exemplo_analise'],
+        _metadata: {
+          estimated_complexity: 'Alta',
+          complexity_score: 85,
+          tags: ['refatoração', 'qualidade']
+        }
+      }
+    ]
+
+    const mockHealth: ApiHealthData = {
+      status: false,
+      response_time: 0,
+      timestamp: new Date().toISOString(),
+      error: 'Modo offline ativo'
+    }
+
+    const mockAnalytics: TaskAnalyticsData = this.calculateAnalyticsLocally(mockTasks)
+
+    return {
+      health: mockHealth,
+      tasks: mockTasks,
+      analytics: mockAnalytics
+    }
   }
 }

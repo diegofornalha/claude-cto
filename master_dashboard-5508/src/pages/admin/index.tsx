@@ -21,6 +21,7 @@ import {
   HardDrive,
   Wifi
 } from 'lucide-react'
+import AdminErrorBoundary from '@/components/AdminErrorBoundary'
 
 interface SystemStats {
   totalTasks: number
@@ -137,7 +138,7 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <>
+    <AdminErrorBoundary>
       <Head>
         <title>Administração - Claude CTO Dashboard</title>
       </Head>
@@ -338,7 +339,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-    </>
+    </AdminErrorBoundary>
   )
 }
 

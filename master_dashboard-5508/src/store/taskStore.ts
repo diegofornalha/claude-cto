@@ -187,7 +187,7 @@ export const useTaskStore = create<TaskStoreState>()(
             existingTaskIdentifiers: []
           }),
         
-        // Carregamento de tarefas
+        // Carregamento de tarefas com cache inteligente
         fetchTasks: async (force = false) => {
           const state = get()
           const now = new Date()
@@ -201,6 +201,15 @@ export const useTaskStore = create<TaskStoreState>()(
           set({ isLoading: true, lastError: null })
           
           try {
+            // Tentar buscar dados cached primeiro se não forçado
+            if (!force && state.tasks.length > 0 && state.lastFetch) {
+              const timeSinceLastFetch = now.getTime() - state.lastFetch.getTime()
+              if (timeSinceLastFetch < 15000) { // Cache de 15 segundos para não forçado
+                set({ isLoading: false })
+                return
+              }
+            }
+            
             const { tasks, total, filtered } = await MCPApiService.listTasksWithFilters(
               state.filters,
               state.pagination.pageSize,
@@ -220,10 +229,41 @@ export const useTaskStore = create<TaskStoreState>()(
                 hasPrev: state.pagination.currentPage > 1
               }
             })
+            
+            // Limpar cache expirado da API
+            MCPApiService.cleanExpiredCache()
           } catch (error) {
-            set({ 
-              lastError: error instanceof Error ? error.message : 'Erro ao carregar tarefas' 
-            })
+            // Se há dados em cache e ocorreu erro, usar dados em cache
+            if (state.tasks.length > 0 && state.lastFetch) {
+              console.warn('Erro ao buscar dados, usando cache local:', error)
+              set({ 
+                lastError: `Usando dados em cache - ${error instanceof Error ? error.message : 'Erro de conexão'}`,
+                isLoading: false
+              })
+              return
+            }
+            
+            // Se não há cache, tentar usar dados mock como fallback
+            try {
+              console.log('Tentando usar dados mock como fallback...')
+              const mockData = await MCPApiService.getMockData()
+              set({
+                tasks: mockData.tasks,
+                lastFetch: now,
+                lastError: 'Modo offline ativo - usando dados de exemplo',
+                pagination: {
+                  ...state.pagination,
+                  totalItems: mockData.tasks.length,
+                  totalPages: 1,
+                  hasNext: false,
+                  hasPrev: false
+                }
+              })
+            } catch (mockError) {
+              set({ 
+                lastError: error instanceof Error ? error.message : 'Erro ao carregar tarefas' 
+              })
+            }
           } finally {
             set({ isLoading: false })
           }
@@ -356,9 +396,28 @@ export const useTaskStore = create<TaskStoreState>()(
               analyticsLastFetch: now 
             })
           } catch (error) {
-            set({ 
-              lastError: error instanceof Error ? error.message : 'Erro ao carregar analytics' 
-            })
+            // Se há dados de analytics em cache, usar eles
+            if (state.analytics && state.analyticsLastFetch) {
+              console.warn('Erro ao buscar analytics, usando cache:', error)
+              set({ 
+                lastError: `Analytics em cache - ${error instanceof Error ? error.message : 'Erro de conexão'}`
+              })
+              return
+            }
+            
+            // Tentar usar dados mock
+            try {
+              const mockData = await MCPApiService.getMockData()
+              set({
+                analytics: mockData.analytics,
+                analyticsLastFetch: now,
+                lastError: 'Analytics em modo offline - usando dados de exemplo'
+              })
+            } catch (mockError) {
+              set({ 
+                lastError: error instanceof Error ? error.message : 'Erro ao carregar analytics' 
+              })
+            }
           }
         },
         

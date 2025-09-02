@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 import { Task, TaskStatus, TaskModel } from '@/types/task'
+import { useToast } from '@/components/ui/LoadingIndicators'
 
 interface TaskCardProps {
   task: Task
@@ -39,6 +40,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showFullPrompt, setShowFullPrompt] = useState(false)
+  const toast = useToast()
 
   const getStatusConfig = (status: TaskStatus) => {
     const configs = {
@@ -131,9 +133,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const copyToClipboard = async (text: string, type: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      // Você pode adicionar uma notificação aqui
+      toast.success(`${type} copiado para o clipboard!`)
     } catch (err) {
       console.error('Erro ao copiar para clipboard:', err)
+      toast.error(`Erro ao copiar ${type.toLowerCase()}`)
     }
   }
 

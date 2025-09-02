@@ -93,7 +93,12 @@ const TaskListPage: NextPage = () => {
         avgExecutionTime: 0,
         modelDistribution: {} as Record<TaskModel, number>,
         complexityDistribution: {},
-        trendsData: []
+        trendsData: [],
+        performanceMetrics: {
+          throughput: 0,
+          errorRate: 0,
+          avgResponseTime: 0
+        }
       }
     }
 
@@ -137,7 +142,12 @@ const TaskListPage: NextPage = () => {
         'Complexa': Math.floor(totalTasks * 0.2),
         'Muito Complexa': Math.floor(totalTasks * 0.1)
       },
-      trendsData
+      trendsData,
+      performanceMetrics: {
+        throughput: Math.round(totalTasks / 30 * 100) / 100, // Tasks per day
+        errorRate: Math.round((1 - successRate / 100) * 100 * 100) / 100,
+        avgResponseTime: avgExecutionTime
+      }
     }
   }, [filteredTasks])
 

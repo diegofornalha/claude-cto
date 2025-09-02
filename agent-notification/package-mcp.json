@@ -1,0 +1,137 @@
+{
+  "name": "readme-agent-claude-mcp",
+  "displayName": "README Agent Claude MCP",
+  "description": "Gera README usando Claude Code SDK via MCP - SEM API KEY!",
+  "version": "2.0.0",
+  "publisher": "claude-cto",
+  "author": {
+    "name": "Claude CTO Team"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/claude-cto/readme-agent-mcp.git"
+  },
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#FF6B35",
+    "theme": "dark"
+  },
+  "keywords": [
+    "readme",
+    "documentation",
+    "claude",
+    "mcp",
+    "ai",
+    "no-api-key"
+  ],
+  "engines": {
+    "vscode": "^1.83.1"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension-mcp.js",
+  "contributes": {
+    "configuration": {
+      "title": "README Agent MCP",
+      "properties": {
+        "readmeAgentMCP.language": {
+          "type": "string",
+          "enum": ["pt-br", "en", "es", "fr", "de", "ja", "zh"],
+          "default": "pt-br",
+          "description": "Idioma padrão para gerar READMEs"
+        },
+        "readmeAgentMCP.maxFiles": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Número máximo de arquivos a analisar"
+        },
+        "readmeAgentMCP.includeHidden": {
+          "type": "boolean",
+          "default": false,
+          "description": "Incluir arquivos ocultos na análise"
+        },
+        "readmeAgentMCP.autoOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Abrir README automaticamente após gerar"
+        }
+      }
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "readmeagent.generateMCP",
+          "when": "explorerResourceIsFolder",
+          "group": "claude@1"
+        },
+        {
+          "command": "readmeagent.analyzeProject",
+          "when": "explorerResourceIsFolder",
+          "group": "claude@2"
+        },
+        {
+          "command": "readmeagent.updateReadme",
+          "when": "resourceExtname == .md",
+          "group": "claude@3"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "readmeagent.generateMCP",
+        "title": "Claude: Gerar README",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "readmeagent.analyzeProject",
+        "title": "Claude: Analisar Projeto",
+        "icon": "$(search)"
+      },
+      {
+        "command": "readmeagent.updateReadme",
+        "title": "Claude: Atualizar README",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "readmeagent.showInfo",
+        "title": "Claude: Informações MCP",
+        "icon": "$(info)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "readmeagent.generateMCP",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "explorerResourceIsFolder"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "install-mcp": "pip install mcp",
+    "test-mcp": "python src/mcp-server.py --test"
+  },
+  "dependencies": {
+    "istextorbinary": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "18.x",
+    "@types/vscode": "^1.83.1",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "@vscode/vsce": "^2.26.1",
+    "esbuild": "^0.20.2",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5"
+  }
+}

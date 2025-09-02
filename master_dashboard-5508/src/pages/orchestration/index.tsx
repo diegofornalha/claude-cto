@@ -161,10 +161,10 @@ const OrchestrationPage: React.FC = () => {
                 Exemplo de Uso:
               </h4>
               <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p>1. <strong>Tarefa A:</strong> Analisar código (identifier: "analyze")</p>
-                <p>2. <strong>Tarefa B:</strong> Corrigir problemas (depends_on: ["analyze"])</p>
-                <p>3. <strong>Tarefa C:</strong> Executar testes (depends_on: ["fix"])</p>
-                <p>4. <strong>Tarefa D:</strong> Gerar relatório (depends_on: ["test"])</p>
+                <p>1. <strong>Tarefa A:</strong> Analisar código (identifier: &ldquo;analyze&rdquo;)</p>
+                <p>2. <strong>Tarefa B:</strong> Corrigir problemas (depends_on: [&ldquo;analyze&rdquo;])</p>
+                <p>3. <strong>Tarefa C:</strong> Executar testes (depends_on: [&ldquo;fix&rdquo;])</p>
+                <p>4. <strong>Tarefa D:</strong> Gerar relatório (depends_on: [&ldquo;test&rdquo;])</p>
               </div>
             </div>
           </div>
