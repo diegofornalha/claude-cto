@@ -8,13 +8,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Grid } from '../../components/ui/Grid';
 import { Stack } from '../../components/ui/Stack';
 import { Skeleton } from '../../components/ui/Skeleton';
-
-interface TaskStats {
-  total: number;
-  completed: number;
-  failed: number;
-  toBeCleared: number;
-}
+import { McpApi, type TaskStats, type ClearTasksResponse } from '../../services/mcp-api';
 
 interface ClearResult {
   success: boolean;
@@ -29,64 +23,63 @@ const ClearTasksPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ClearResult | null>(null);
 
-  // Simular carregamento de estatísticas
+  // Carregar estatísticas reais das tasks
   const loadStats = async () => {
     try {
       setLoading(true);
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 800));
+      setError(null);
       
-      // Dados mockados
-      const mockStats: TaskStats = {
-        total: 127,
-        completed: 89,
-        failed: 12,
-        toBeCleared: 101 // completed + failed
-      };
+      // Buscar estatísticas reais da API
+      const realStats = await McpApi.getTaskStats();
+      setStats(realStats);
       
-      setStats(mockStats);
     } catch (err) {
-      setError('Erro ao carregar estatísticas das tasks');
+      console.error('Erro ao carregar estatísticas:', err);
+      setError(
+        err && typeof err === 'object' && 'message' in err 
+          ? (err as any).message 
+          : 'Erro ao carregar estatísticas das tasks. Verifique se a API Claude CTO está em execução.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Simular operação de limpeza
+  // Executar operação real de limpeza
   const handleClearTasks = async () => {
     if (!stats) return;
     
     try {
       setClearing(true);
       setError(null);
+      setLastResult(null);
       
-      // Simular delay de operação
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Executar limpeza real via API
+      const clearResponse = await McpApi.clearTasks();
       
-      // Simular resultado
-      const cleared = stats.toBeCleared;
       const result: ClearResult = {
-        success: true,
-        cleared,
-        message: `${cleared} tasks foram removidas com sucesso do sistema`
+        success: clearResponse.success,
+        cleared: clearResponse.cleared,
+        message: clearResponse.message
       };
       
       setLastResult(result);
       
-      // Atualizar stats após limpeza
-      setStats({
-        ...stats,
-        completed: 0,
-        failed: 0,
-        toBeCleared: 0,
-        total: stats.total - cleared
-      });
+      if (clearResponse.success) {
+        // Recarregar estatísticas após limpeza bem-sucedida
+        await loadStats();
+      }
       
     } catch (err) {
+      console.error('Erro ao limpar tasks:', err);
+      const errorMessage = err && typeof err === 'object' && 'message' in err 
+        ? (err as any).message 
+        : 'Erro ao limpar tasks. Verifique a conexão com a API.';
+        
       const result: ClearResult = {
         success: false,
         cleared: 0,
-        message: 'Erro ao limpar tasks. Tente novamente.'
+        message: errorMessage
       };
       setLastResult(result);
     } finally {

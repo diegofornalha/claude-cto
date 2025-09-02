@@ -77,22 +77,33 @@ const AdminDashboard: React.FC = () => {
     const loadMetrics = async () => {
       try {
         setLoading(true);
-        // Simular delay de API
-        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Dados mockados
-        const mockMetrics: SystemMetrics = {
-          totalTasks: 42,
-          runningTasks: 3,
-          completedTasks: 35,
-          failedTasks: 4,
-          systemHealth: 'healthy',
-          uptime: '2d 14h 23m'
+        // Buscar dados reais da API
+        const response = await fetch('http://localhost:8888/api/v1/tasks');
+        if (!response.ok) {
+          throw new Error('Falha ao buscar tarefas');
+        }
+        
+        const tasks = await response.json();
+        
+        // Calcular métricas reais
+        const runningTasks = tasks.filter((t: any) => t.status === 'running').length;
+        const completedTasks = tasks.filter((t: any) => t.status === 'completed').length;
+        const failedTasks = tasks.filter((t: any) => t.status === 'failed').length;
+        
+        const realMetrics: SystemMetrics = {
+          totalTasks: tasks.length,
+          runningTasks,
+          completedTasks,
+          failedTasks,
+          systemHealth: failedTasks > 5 ? 'warning' : 'healthy',
+          uptime: '2d 14h 23m' // TODO: buscar de endpoint de status
         };
         
-        setMetrics(mockMetrics);
+        setMetrics(realMetrics);
       } catch (err) {
-        setError('Erro ao carregar métricas do sistema');
+        console.error('Erro ao carregar métricas:', err);
+        setError('Erro ao conectar com a API. Verifique se o servidor está rodando em localhost:8888');
       } finally {
         setLoading(false);
       }

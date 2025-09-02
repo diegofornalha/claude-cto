@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
@@ -7,19 +8,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Grid, GridItem, MetricsGrid } from '@/components/ui/Grid';
 import { Stack } from '@/components/ui/Stack';
 import { Skeleton, SkeletonCard, SkeletonMetricCard } from '@/components/ui/Skeleton';
+import { McpApi, Task, ApiError } from '@/services/mcp-api';
 
 // Types
-interface Task {
-  id: string;
-  identifier: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  created_at: string;
-  updated_at: string;
-  execution_prompt: string;
-  model: string;
-  working_directory: string;
-}
-
 interface TaskStats {
   total: number;
   pending: number;
@@ -28,47 +19,6 @@ interface TaskStats {
   failed: number;
 }
 
-// Mock data - Replace with real API calls
-const mockStats: TaskStats = {
-  total: 247,
-  pending: 12,
-  running: 3,
-  completed: 215,
-  failed: 17
-};
-
-const mockRecentTasks: Task[] = [
-  {
-    id: '1',
-    identifier: 'refactor-auth-system',
-    status: 'running',
-    created_at: '2024-01-15T10:30:00Z',
-    updated_at: '2024-01-15T11:45:00Z',
-    execution_prompt: 'Refactor the authentication system to use JWT tokens',
-    model: 'opus',
-    working_directory: '/app/src'
-  },
-  {
-    id: '2',
-    identifier: 'optimize-database-queries',
-    status: 'completed',
-    created_at: '2024-01-15T09:15:00Z',
-    updated_at: '2024-01-15T10:20:00Z',
-    execution_prompt: 'Optimize slow database queries in the user service',
-    model: 'sonnet',
-    working_directory: '/app/services'
-  },
-  {
-    id: '3',
-    identifier: 'add-unit-tests',
-    status: 'failed',
-    created_at: '2024-01-15T08:00:00Z',
-    updated_at: '2024-01-15T08:30:00Z',
-    execution_prompt: 'Add comprehensive unit tests for the payment module',
-    model: 'haiku',
-    working_directory: '/app/tests'
-  }
-];
 
 // Components
 const MetricCard: React.FC<{
@@ -150,30 +100,131 @@ const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
 };
 
 export default function TasksDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<TaskStats | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  // Simulate API loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setStats(mockStats);
-      setRecentTasks(mockRecentTasks);
+  // Função para calcular estatísticas das tasks
+  const calculateStats = (tasks: Task[]): TaskStats => {
+    const total = tasks.length;
+    const pending = tasks.filter(t => t.status === 'pending').length;
+    const running = tasks.filter(t => t.status === 'running').length;
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const failed = tasks.filter(t => t.status === 'failed').length;
+
+    return { total, pending, running, completed, failed };
+  };
+
+  // Função para carregar dados da API
+  const loadData = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      // Verificar conectividade da API
+      const isOnline = await McpApi.healthCheck();
+      setApiStatus(isOnline ? 'online' : 'offline');
+
+      if (!isOnline) {
+        throw new Error('API Claude CTO não está disponível em http://localhost:8888');
+      }
+
+      // Buscar todas as tasks
+      const tasks = await McpApi.getTasks();
+      
+      // Calcular estatísticas
+      const calculatedStats = calculateStats(tasks);
+      setStats(calculatedStats);
+
+      // Ordenar tasks por data de criação (mais recentes primeiro) e pegar as primeiras 10
+      const sortedTasks = tasks
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10);
+      
+      setRecentTasks(sortedTasks);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao carregar dados';
+      setError(errorMessage);
+      setApiStatus('offline');
+      console.error('Erro ao carregar dados:', err);
+    } finally {
       setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+      setRefreshing(false);
+    }
   }, []);
 
+  // Função para refresh manual
+  const handleRefresh = useCallback(() => {
+    loadData(true);
+  }, [loadData]);
+
+  // Função para navegar para criar nova task
+  const handleNewTask = useCallback(() => {
+    router.push('/tasks/create');
+  }, [router]);
+
+  // Carregamento inicial dos dados
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Auto-refresh a cada 15 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 15000); // 15 segundos
+
+    return () => clearInterval(interval);
+  }, [loadData]);
+
   const headerActions = (
-    <Stack direction="horizontal" spacing="sm">
+    <Stack direction="horizontal" spacing="sm" align="center">
+      {/* Status da API */}
+      <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className={`w-2 h-2 rounded-full ${
+          apiStatus === 'online' ? 'bg-green-500' :
+          apiStatus === 'offline' ? 'bg-red-500' :
+          'bg-yellow-500 animate-pulse'
+        }`}></div>
+        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {apiStatus === 'online' ? 'API Online' :
+           apiStatus === 'offline' ? 'API Offline' :
+           'Verificando...'}
+        </span>
+      </div>
+
+      <Button 
+        variant="outline" 
+        size="md" 
+        onClick={handleRefresh}
+        disabled={refreshing}
+      >
+        <svg 
+          className={`w-5 h-5 mr-2 ${refreshing ? 'animate-spin' : ''}`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {refreshing ? 'Atualizando...' : 'Atualizar'}
+      </Button>
       <Button variant="outline" size="md">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
         </svg>
         Exportar
       </Button>
-      <Button size="md">
+      <Button size="md" onClick={handleNewTask}>
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
@@ -191,6 +242,37 @@ export default function TasksDashboard() {
       />
 
       <Stack direction="vertical" spacing="lg">
+        {/* Alerta de Erro */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-400">
+                  Erro ao carregar dados
+                </h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  <p>{error}</p>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                  >
+                    Tentar novamente
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Métricas */}
         <section>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -296,7 +378,7 @@ export default function TasksDashboard() {
           </h2>
           
           <Grid cols={1} colsMd={2} colsLg={4} gap="md">
-            <Card hoverable>
+            <Card hoverable onClick={handleNewTask} className="cursor-pointer">
               <CardBody>
                 <Stack direction="vertical" spacing="sm" align="center">
                   <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">

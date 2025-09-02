@@ -245,8 +245,8 @@
         // WebSocket connection
         let ws = null;
         let reconnectInterval = null;
-        const API_URL = 'http://localhost:8080';
-        const WS_URL = 'ws://localhost:8080/ws';
+        const API_URL = 'http://localhost:8890';
+        const WS_URL = 'ws://localhost:8890/ws';
 
         // State
         let tasks = [];
@@ -502,9 +502,39 @@
                     updateUI();
                     break;
                 case 'task_running':
+                    addActivity({
+                        ...data.data,
+                        type: 'started',
+                        status: 'running',
+                        message: `🚀 Tarefa #${data.data.id} iniciada`
+                    });
+                    fetchTasks();
+                    break;
                 case 'task_completed':
+                    addActivity({
+                        ...data.data,
+                        type: 'completed',
+                        status: 'completed',
+                        message: `✅ Tarefa #${data.data.id} concluída com sucesso`
+                    });
+                    fetchTasks();
+                    break;
                 case 'task_failed':
-                    addActivity(data.data);
+                    addActivity({
+                        ...data.data,
+                        type: 'failed',
+                        status: 'failed',
+                        message: `❌ Tarefa #${data.data.id} falhou: ${data.data.error || 'Erro desconhecido'}`
+                    });
+                    fetchTasks();
+                    break;
+                case 'task_deleted':
+                    addActivity({
+                        ...data.data,
+                        type: 'deleted',
+                        status: 'deleted',
+                        message: `🗑️ Tarefa #${data.data.id} removida`
+                    });
                     fetchTasks();
                     break;
                 case 'stats':
@@ -521,26 +551,75 @@
                 const oldTasks = [...tasks];
                 tasks = data.tasks || [];
                 
-                // Check for newly completed tasks
+                // Detectar mudanças e adicionar ao feed
                 if (oldTasks.length > 0) {
+                    // Tarefas novas
                     tasks.forEach(task => {
                         const oldTask = oldTasks.find(t => t.id === task.id);
-                        if (oldTask && oldTask.status === 'running' && task.status === 'completed') {
-                            if (notificationPrefs.completed) {
-                                sendBrowserNotification(
-                                    'Tarefa Concluída!',
-                                    `✅ Task #${task.id} foi concluída com sucesso!`,
-                                    'success'
-                                );
+                        
+                        if (!oldTask) {
+                            // Nova tarefa
+                            addActivity({
+                                id: task.id,
+                                identifier: task.identifier,
+                                type: 'started',
+                                status: 'running',
+                                message: `🆕 Nova tarefa #${task.id} adicionada`
+                            });
+                        } else if (oldTask.status !== task.status) {
+                            // Status mudou
+                            if (task.status === 'completed') {
+                                addActivity({
+                                    id: task.id,
+                                    identifier: task.identifier,
+                                    type: 'completed',
+                                    status: 'completed',
+                                    message: `✅ Tarefa #${task.id} concluída com sucesso`
+                                });
+                                if (notificationPrefs.completed) {
+                                    sendBrowserNotification(
+                                        `✅ Task #${task.id} Concluída`,
+                                        task.identifier || task.message || 'Processamento finalizado com sucesso',
+                                        'success'
+                                    );
+                                }
+                            } else if (task.status === 'failed') {
+                                addActivity({
+                                    id: task.id,
+                                    identifier: task.identifier,
+                                    type: 'failed',
+                                    status: 'failed',
+                                    message: `❌ Tarefa #${task.id} falhou`
+                                });
+                                if (notificationPrefs.failed) {
+                                    sendBrowserNotification(
+                                        `❌ Task #${task.id} Falhou`,
+                                        task.error || task.message || 'Erro durante o processamento',
+                                        'error'
+                                    );
+                                }
+                            } else if (task.status === 'running' && oldTask.status === 'pending') {
+                                addActivity({
+                                    id: task.id,
+                                    identifier: task.identifier,
+                                    type: 'started',
+                                    status: 'running',
+                                    message: `🚀 Tarefa #${task.id} iniciada`
+                                });
                             }
-                        } else if (oldTask && oldTask.status === 'running' && task.status === 'failed') {
-                            if (notificationPrefs.failed) {
-                                sendBrowserNotification(
-                                    'Tarefa Falhou',
-                                    `❌ Task #${task.id} encontrou um erro`,
-                                    'error'
-                                );
-                            }
+                        }
+                    });
+                    
+                    // Tarefas removidas
+                    oldTasks.forEach(oldTask => {
+                        if (!tasks.find(t => t.id === oldTask.id)) {
+                            addActivity({
+                                id: oldTask.id,
+                                identifier: oldTask.identifier,
+                                type: 'deleted',
+                                status: 'deleted',
+                                message: `🗑️ Tarefa #${oldTask.id} removida do sistema`
+                            });
                         }
                     });
                 }
@@ -665,25 +744,33 @@
 
             activityFeed.innerHTML = activities.map(activity => {
                 const iconConfig = {
-                    completed: { icon: 'check-circle', color: 'green' },
-                    failed: { icon: 'x-circle', color: 'red' },
-                    running: { icon: 'play-circle', color: 'orange' }
+                    completed: { icon: 'check-circle', color: 'green', emoji: '✅' },
+                    failed: { icon: 'x-circle', color: 'red', emoji: '❌' },
+                    running: { icon: 'play-circle', color: 'orange', emoji: '🚀' },
+                    deleted: { icon: 'trash-2', color: 'gray', emoji: '🗑️' },
+                    started: { icon: 'play', color: 'blue', emoji: '▶️' }
                 };
 
-                const config = iconConfig[activity.status] || { icon: 'info', color: 'gray' };
+                const config = iconConfig[activity.status] || iconConfig[activity.type] || { icon: 'info', color: 'gray', emoji: 'ℹ️' };
+
+                // Formatar mensagem com mais detalhes
+                let displayMessage = activity.message || 'Status atualizado';
+                if (activity.identifier) {
+                    displayMessage = `[${activity.identifier}] ${displayMessage}`;
+                }
 
                 return `
-                    <div class="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    <div class="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition border-l-4 border-${config.color}-500">
                         <div class="bg-${config.color}-100 dark:bg-${config.color}-900 p-2 rounded">
                             <i data-lucide="${config.icon}" class="w-4 h-4 text-${config.color}-600 dark:text-${config.color}-400"></i>
                         </div>
                         <div class="flex-1">
                             <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                Task #${activity.id} - ${activity.status}
+                                ${config.emoji} ${displayMessage}
                             </p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                ${activity.message || 'Status atualizado'}
-                            </p>
+                            ${activity.identifier ? `<p class="text-xs text-purple-600 dark:text-purple-400 font-mono">
+                                ${activity.identifier}
+                            </p>` : ''}
                             <p class="text-xs text-gray-400 mt-1">
                                 ${activity.timestamp}
                             </p>
