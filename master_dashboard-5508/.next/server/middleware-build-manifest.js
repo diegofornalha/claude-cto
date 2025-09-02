@@ -24,25 +24,15 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/admin/clear-tasks": [
+    "/admin": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/admin/clear-tasks.js"
+      "static/chunks/pages/admin.js"
     ],
-    "/admin/delete-task": [
+    "/sitemap": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/admin/delete-task.js"
-    ],
-    "/tasks": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/tasks.js"
-    ],
-    "/tasks/create": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/tasks/create.js"
+      "static/chunks/pages/sitemap.js"
     ]
   },
   "ampFirstPages": []

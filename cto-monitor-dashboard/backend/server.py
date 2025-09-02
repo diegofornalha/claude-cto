@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
 import aiohttp
@@ -211,12 +212,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/")
 async def root():
-    """Endpoint raiz"""
+    """Serve the HTML dashboard"""
+    html_path = Path(__file__).parent.parent / "frontend" / "index.html"
+    if html_path.exists():
+        return FileResponse(html_path)
     return {
         "service": "CTO Monitor Dashboard",
         "version": "1.0.0",
         "status": "running",
-        "websocket": "ws://localhost:8890/ws",
+        "websocket": "ws://localhost:8080/ws",
         "stats": state.stats.dict()
     }
 
@@ -281,20 +285,25 @@ async def monitor_claude_cto():
                 # Buscar tarefas do Claude CTO
                 async with session.get(f"{CTO_URL}/tasks") as resp:
                     if resp.status == 200:
-                        tasks = await resp.json()
+                        tasks_response = await resp.json()
                         
-                        for task_data in tasks.get("tasks", []):
+                        # A resposta \u00e9 uma lista direta, n\u00e3o um dict
+                        tasks_list = tasks_response if isinstance(tasks_response, list) else tasks_response.get("tasks", [])
+                        
+                        for task_data in tasks_list:
                             task_id = task_data["id"]
                             
                             # Criar ou atualizar tarefa
                             task = TaskStatus(
                                 id=task_id,
-                                identifier=task_data.get("identifier"),
+                                identifier=task_data.get("identifier") or task_data.get("task_identifier"),
                                 status=task_data.get("status", "unknown"),
-                                message=task_data.get("last_action", ""),
+                                message=task_data.get("last_action_cache", ""),
                                 created_at=datetime.fromisoformat(
                                     task_data.get("created_at", datetime.now().isoformat())
                                 ),
+                                started_at=datetime.fromisoformat(task_data["started_at"]) if task_data.get("started_at") else None,
+                                ended_at=datetime.fromisoformat(task_data["ended_at"]) if task_data.get("ended_at") else None,
                                 error=task_data.get("error_message")
                             )
                             
@@ -345,10 +354,12 @@ async def shutdown_event():
 # ==================== MAIN ====================
 
 if __name__ == "__main__":
+    import sys
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8890
     uvicorn.run(
         "server:app",
         host="0.0.0.0",
-        port=8890,
+        port=port,
         reload=True,
         log_level="info"
     )

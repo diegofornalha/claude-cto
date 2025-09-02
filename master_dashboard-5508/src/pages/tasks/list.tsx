@@ -1,518 +1,624 @@
-/**
- * Lista de Tarefas Ultra - Dashboard Master Next.js
- * Migração completa do dashboard Python Streamlit para Next.js
- */
+import React, { useState, useEffect, useMemo } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Badge } from '@/components/ui/Badge';
+import { Grid, GridItem } from '@/components/ui/Grid';
+import { Stack } from '@/components/ui/Stack';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { NextPage } from 'next'
-import Head from 'next/head'
-import { 
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  ArrowDownTrayIcon,
-  TableCellsIcon,
-  Squares2X2Icon,
-  ArrowPathIcon,
-  TrashIcon,
-  PauseIcon,
-  PlayIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline'
+// Types
+interface Task {
+  id: string;
+  identifier: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  execution_prompt: string;
+  model: 'opus' | 'sonnet' | 'haiku';
+  working_directory: string;
+  orchestration_group?: string;
+  execution_time?: number; // in seconds
+}
 
-// Importações locais
-import { Task, TaskStatus, TaskModel, TaskAnalyticsData } from '@/types/task'
-import { MCPApiService } from '@/services/mcp-api'
-import TaskGrid from '@/components/tasks/TaskGrid'
-import TaskFilters from '@/components/tasks/TaskFilters'
-import TaskCard from '@/components/tasks/TaskCard'
-import ExportButton from '@/components/tasks/ExportButton'
-import TaskAnalytics from '@/components/tasks/TaskAnalytics'
-import { useTaskList } from '@/hooks/useTaskList'
-import { useTaskFilters } from '@/hooks/useTaskFilters'
-import { useTaskSelection } from '@/hooks/useTaskSelection'
-import { useRealTimeUpdates } from '@/hooks/useRealTimeUpdates'
+interface TaskFilters {
+  search: string;
+  status: string;
+  model: string;
+  dateRange: string;
+  sortBy: 'created_at' | 'updated_at' | 'identifier';
+  sortOrder: 'asc' | 'desc';
+}
 
-const TaskListPage: NextPage = () => {
-  // Estados principais
-  const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid')
-  const [showFilters, setShowFilters] = useState(false)
-  const [showAnalytics, setShowAnalytics] = useState(true)
-  const [pageSize, setPageSize] = useState(20)
-  const [currentPage, setCurrentPage] = useState(1)
-
-  // Custom hooks
-  const {
-    tasks,
-    loading,
-    error,
-    totalCount,
-    refreshTasks,
-    bulkDeleteTasks,
-    bulkUpdateStatus
-  } = useTaskList()
-
-  const {
-    filters,
-    setFilters,
-    filteredTasks,
-    appliedFiltersCount
-  } = useTaskFilters(tasks)
-
-  const {
-    selectedTasks,
-    toggleTaskSelection,
-    selectAllTasks,
-    clearSelection,
-    isTaskSelected
-  } = useTaskSelection()
-
-  const {
-    isRealTimeEnabled,
-    setRealTimeEnabled,
-    lastUpdate,
-    connectionStatus
-  } = useRealTimeUpdates(refreshTasks, 30000) // 30 segundos
-
-  // Dados paginados
-  const paginatedTasks = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
-    return filteredTasks.slice(startIndex, endIndex)
-  }, [filteredTasks, currentPage, pageSize])
-
-  const totalPages = Math.ceil(filteredTasks.length / pageSize)
-
-  // Analytics calculados
-  const analyticsData: TaskAnalyticsData = useMemo(() => {
-    const totalTasks = filteredTasks.length
-    if (totalTasks === 0) {
-      return {
-        totalTasks: 0,
-        statusCounts: {} as Record<TaskStatus, number>,
-        successRate: 0,
-        avgExecutionTime: 0,
-        modelDistribution: {} as Record<TaskModel, number>,
-        complexityDistribution: {},
-        trendsData: [],
-        performanceMetrics: {
-          throughput: 0,
-          errorRate: 0,
-          avgResponseTime: 0
-        }
-      }
-    }
-
-    // Contagem por status
-    const statusCounts = filteredTasks.reduce((acc, task) => {
-      const status = task.status || 'pending'
-      acc[status] = (acc[status] || 0) + 1
-      return acc
-    }, {} as Record<TaskStatus, number>)
-
-    // Taxa de sucesso
-    const successRate = ((statusCounts.completed || 0) / totalTasks) * 100
-
-    // Distribuição por modelo
-    const modelDistribution = filteredTasks.reduce((acc, task) => {
-      const model = task.model || 'sonnet'
-      acc[model] = (acc[model] || 0) + 1
-      return acc
-    }, {} as Record<TaskModel, number>)
-
-    // Simulação de tempo médio e complexidade
-    const avgExecutionTime = filteredTasks.reduce((acc, task) => {
-      return acc + (task._metadata?.complexity_score || 30)
-    }, 0) / totalTasks
-
-    // Dados de tendência simulados
-    const trendsData = Array.from({ length: 7 }, (_, i) => ({
-      date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      count: Math.floor(Math.random() * 20) + 5
-    }))
-
-    return {
-      totalTasks,
-      statusCounts,
-      successRate: Math.round(successRate * 10) / 10,
-      avgExecutionTime: Math.round(avgExecutionTime * 10) / 10,
-      modelDistribution,
-      complexityDistribution: {
-        'Simples': Math.floor(totalTasks * 0.3),
-        'Moderada': Math.floor(totalTasks * 0.4),
-        'Complexa': Math.floor(totalTasks * 0.2),
-        'Muito Complexa': Math.floor(totalTasks * 0.1)
-      },
-      trendsData,
-      performanceMetrics: {
-        throughput: Math.round(totalTasks / 30 * 100) / 100, // Tasks per day
-        errorRate: Math.round((1 - successRate / 100) * 100 * 100) / 100,
-        avgResponseTime: avgExecutionTime
-      }
-    }
-  }, [filteredTasks])
-
-  // Handlers
-  const handleBulkDelete = useCallback(async () => {
-    if (selectedTasks.size === 0) return
-    
-    try {
-      await bulkDeleteTasks(Array.from(selectedTasks))
-      clearSelection()
-    } catch (err) {
-      console.error('Erro ao deletar tarefas:', err)
-    }
-  }, [selectedTasks, bulkDeleteTasks, clearSelection])
-
-  const handleBulkStatusUpdate = useCallback(async (newStatus: TaskStatus) => {
-    if (selectedTasks.size === 0) return
-    
-    try {
-      await bulkUpdateStatus(Array.from(selectedTasks), newStatus)
-      clearSelection()
-    } catch (err) {
-      console.error('Erro ao atualizar status:', err)
-    }
-  }, [selectedTasks, bulkUpdateStatus, clearSelection])
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+// Mock data
+const mockTasks: Task[] = [
+  {
+    id: '1',
+    identifier: 'refactor-auth-system',
+    status: 'running',
+    created_at: '2024-01-15T10:30:00Z',
+    updated_at: '2024-01-15T11:45:00Z',
+    execution_prompt: 'Refatorar o sistema de autenticação para usar JWT tokens com refresh tokens. Implementar middleware de autenticação e autorização baseado em roles.',
+    model: 'opus',
+    working_directory: '/app/src/auth',
+    orchestration_group: 'security-upgrade',
+    execution_time: 1875
+  },
+  {
+    id: '2',
+    identifier: 'optimize-database-queries',
+    status: 'completed',
+    created_at: '2024-01-15T09:15:00Z',
+    updated_at: '2024-01-15T10:20:00Z',
+    execution_prompt: 'Otimizar queries lentas no serviço de usuários. Adicionar índices apropriados, revisar N+1 queries e implementar cache Redis.',
+    model: 'sonnet',
+    working_directory: '/app/services/users',
+    execution_time: 3900
+  },
+  {
+    id: '3',
+    identifier: 'add-unit-tests-payments',
+    status: 'failed',
+    created_at: '2024-01-15T08:00:00Z',
+    updated_at: '2024-01-15T08:30:00Z',
+    execution_prompt: 'Adicionar testes unitários abrangentes para o módulo de pagamentos. Incluir testes para cenários de sucesso, falha e edge cases.',
+    model: 'haiku',
+    working_directory: '/app/tests/payments',
+    execution_time: 450
+  },
+  {
+    id: '4',
+    identifier: 'implement-monitoring',
+    status: 'pending',
+    created_at: '2024-01-15T07:30:00Z',
+    updated_at: '2024-01-15T07:30:00Z',
+    execution_prompt: 'Implementar sistema de monitoramento com Prometheus e Grafana. Adicionar métricas customizadas para monitorar performance da aplicação.',
+    model: 'opus',
+    working_directory: '/app/monitoring',
+    orchestration_group: 'infrastructure'
+  },
+  {
+    id: '5',
+    identifier: 'fix-memory-leak-users',
+    status: 'completed',
+    created_at: '2024-01-14T16:20:00Z',
+    updated_at: '2024-01-14T18:45:00Z',
+    execution_prompt: 'Investigar e corrigir vazamento de memória no service de usuários. Usar profiling tools para identificar a causa.',
+    model: 'sonnet',
+    working_directory: '/app/services/users',
+    execution_time: 8640
+  },
+  {
+    id: '6',
+    identifier: 'create-api-documentation',
+    status: 'running',
+    created_at: '2024-01-14T14:10:00Z',
+    updated_at: '2024-01-14T15:30:00Z',
+    execution_prompt: 'Criar documentação completa da API usando Swagger/OpenAPI. Incluir exemplos de request/response para todos os endpoints.',
+    model: 'haiku',
+    working_directory: '/app/docs',
+    execution_time: 4800
   }
+];
 
-  return (
-    <>
-      <Head>
-        <title>Lista de Tarefas Ultra - Claude CTO</title>
-        <meta name="description" content="Dashboard avançado para gerenciamento de tarefas Claude CTO" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
+// Filter options
+const statusOptions = [
+  { value: '', label: 'Todos os Status' },
+  { value: 'pending', label: 'Pendente' },
+  { value: 'running', label: 'Em Execução' },
+  { value: 'completed', label: 'Concluída' },
+  { value: 'failed', label: 'Falhada' }
+];
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
-        {/* Header */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      📋 Lista de Tarefas Ultra
-                    </h1>
-                  </div>
-                  
-                  {connectionStatus && (
-                    <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-                      <span>Atualizado:</span>
-                      <span className="font-mono">
-                        {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Nunca'}
-                      </span>
-                    </div>
-                  )}
-                </div>
+const modelOptions = [
+  { value: '', label: 'Todos os Modelos' },
+  { value: 'opus', label: 'Opus' },
+  { value: 'sonnet', label: 'Sonnet' },
+  { value: 'haiku', label: 'Haiku' }
+];
 
-                <div className="flex items-center space-x-3">
-                  {/* Toggle Real-time */}
-                  <button
-                    onClick={() => setRealTimeEnabled(!isRealTimeEnabled)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isRealTimeEnabled
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                    }`}
-                  >
-                    <ArrowPathIcon className={`w-4 h-4 ${isRealTimeEnabled ? 'animate-spin' : ''}`} />
-                    <span>Real-time</span>
-                  </button>
+const dateRangeOptions = [
+  { value: '', label: 'Todas as Datas' },
+  { value: 'today', label: 'Hoje' },
+  { value: 'week', label: 'Última Semana' },
+  { value: 'month', label: 'Último Mês' }
+];
 
-                  {/* Toggle Analytics */}
-                  <button
-                    onClick={() => setShowAnalytics(!showAnalytics)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      showAnalytics
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                    }`}
-                  >
-                    <ChartBarIcon className="w-4 h-4" />
-                    <span>Analytics</span>
-                  </button>
+const sortOptions = [
+  { value: 'created_at', label: 'Data de Criação' },
+  { value: 'updated_at', label: 'Última Atualização' },
+  { value: 'identifier', label: 'Nome' }
+];
 
-                  {/* Toggle Filters */}
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      showFilters
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                    }`}
-                  >
-                    <FunnelIcon className="w-4 h-4" />
-                    <span>Filtros {appliedFiltersCount > 0 && `(${appliedFiltersCount})`}</span>
-                  </button>
+export default function TasksList() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  const [filters, setFilters] = useState<TaskFilters>({
+    search: '',
+    status: '',
+    model: '',
+    dateRange: '',
+    sortBy: 'created_at',
+    sortOrder: 'desc'
+  });
 
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded-md transition-colors ${
-                        viewMode === 'grid'
-                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                      }`}
-                    >
-                      <TableCellsIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('cards')}
-                      className={`p-2 rounded-md transition-colors ${
-                        viewMode === 'cards'
-                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                      }`}
-                    >
-                      <Squares2X2Icon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+  // Simulate API loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTasks(mockTasks);
+      setLoading(false);
+    }, 1000);
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Analytics Dashboard */}
-          {showAnalytics && (
-            <div className="mb-8">
-              <TaskAnalytics data={analyticsData} />
-            </div>
-          )}
+    return () => clearTimeout(timer);
+  }, []);
 
-          {/* Filtros Avançados */}
-          {showFilters && (
-            <div className="mb-8">
-              <TaskFilters 
-                filters={filters}
-                onFiltersChange={setFilters}
-                tasksCount={filteredTasks.length}
+  // Filter and sort tasks
+  const filteredTasks = useMemo(() => {
+    let filtered = tasks;
+
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(task =>
+        task.identifier.toLowerCase().includes(searchLower) ||
+        task.execution_prompt.toLowerCase().includes(searchLower) ||
+        task.working_directory.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Status filter
+    if (filters.status) {
+      filtered = filtered.filter(task => task.status === filters.status);
+    }
+
+    // Model filter
+    if (filters.model) {
+      filtered = filtered.filter(task => task.model === filters.model);
+    }
+
+    // Date range filter (simplified)
+    if (filters.dateRange) {
+      const now = new Date();
+      const taskDate = (task: Task) => new Date(task.created_at);
+      
+      switch (filters.dateRange) {
+        case 'today':
+          filtered = filtered.filter(task => {
+            const diff = now.getTime() - taskDate(task).getTime();
+            return diff < 24 * 60 * 60 * 1000; // 24 hours
+          });
+          break;
+        case 'week':
+          filtered = filtered.filter(task => {
+            const diff = now.getTime() - taskDate(task).getTime();
+            return diff < 7 * 24 * 60 * 60 * 1000; // 7 days
+          });
+          break;
+        case 'month':
+          filtered = filtered.filter(task => {
+            const diff = now.getTime() - taskDate(task).getTime();
+            return diff < 30 * 24 * 60 * 60 * 1000; // 30 days
+          });
+          break;
+      }
+    }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      let aVal: any = a[filters.sortBy];
+      let bVal: any = b[filters.sortBy];
+
+      if (filters.sortBy === 'created_at' || filters.sortBy === 'updated_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+
+      if (filters.sortOrder === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [tasks, filters]);
+
+  const handleFilterChange = (key: keyof TaskFilters, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllTasks = () => {
+    if (selectedTasks.size === filteredTasks.length) {
+      setSelectedTasks(new Set());
+    } else {
+      setSelectedTasks(new Set(filteredTasks.map(t => t.id)));
+    }
+  };
+
+  const getStatusBadgeVariant = (status: Task['status']) => {
+    switch (status) {
+      case 'running': return 'info';
+      case 'completed': return 'success';
+      case 'failed': return 'danger';
+      case 'pending': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatExecutionTime = (seconds?: number) => {
+    if (!seconds) return '-';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${remainingSeconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    } else {
+      return `${remainingSeconds}s`;
+    }
+  };
+
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
+    <Card 
+      hoverable 
+      className={selectedTasks.has(task.id) ? 'ring-2 ring-blue-500' : ''}
+    >
+      <CardBody>
+        <Stack direction="vertical" gap="sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={selectedTasks.has(task.id)}
+                onChange={() => toggleTaskSelection(task.id)}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-            </div>
-          )}
-
-          {/* Busca e Ações */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              {/* Busca */}
-              <div className="flex-1 max-w-md">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Busca fuzzy por ID, prompt ou grupo..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Ações em lote */}
-              {selectedTasks.size > 0 && (
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    {selectedTasks.size} selecionadas
-                  </span>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleBulkStatusUpdate('pending')}
-                      className="flex items-center space-x-1 px-3 py-2 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors"
-                    >
-                      <PlayIcon className="w-4 h-4" />
-                      <span>Retomar</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => handleBulkStatusUpdate('pending')} // Simulando pause
-                      className="flex items-center space-x-1 px-3 py-2 text-sm bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-900/40 transition-colors"
-                    >
-                      <PauseIcon className="w-4 h-4" />
-                      <span>Pausar</span>
-                    </button>
-                    
-                    <button
-                      onClick={handleBulkDelete}
-                      className="flex items-center space-x-1 px-3 py-2 text-sm bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                      <span>Deletar</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Export */}
-              <div className="flex items-center space-x-3">
-                <ExportButton 
-                  tasks={filteredTasks} 
-                  selectedOnly={selectedTasks.size > 0}
-                  selectedTasks={Array.from(selectedTasks)}
-                />
-                
-                <button
-                  onClick={refreshTasks}
-                  disabled={loading}
-                  className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span>Atualizar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Lista/Grid de Tarefas */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-            {error ? (
-              <div className="p-8 text-center">
-                <div className="text-red-500 dark:text-red-400 mb-2">❌ Erro ao carregar tarefas</div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">{error}</div>
-                <button 
-                  onClick={refreshTasks}
-                  className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Tentar novamente
-                </button>
-              </div>
-            ) : loading ? (
-              <div className="p-8 text-center">
-                <ArrowPathIcon className="w-8 h-8 animate-spin mx-auto text-slate-400 mb-4" />
-                <div className="text-slate-600 dark:text-slate-400">Carregando tarefas...</div>
-              </div>
-            ) : filteredTasks.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-slate-500 dark:text-slate-400 mb-2">📭 Nenhuma tarefa encontrada</div>
-                <div className="text-sm text-slate-400 dark:text-slate-500">
-                  {appliedFiltersCount > 0 ? 'Ajuste os filtros' : 'Crie sua primeira tarefa'} 
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Informações de Paginação */}
-                <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
-                      Mostrando {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredTasks.length)} de {filteredTasks.length} tarefas
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <label className="text-sm text-slate-600 dark:text-slate-400">
-                        Itens por página:
-                        <select 
-                          value={pageSize} 
-                          onChange={(e) => {
-                            setPageSize(Number(e.target.value))
-                            setCurrentPage(1)
-                          }}
-                          className="ml-2 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
-                        >
-                          <option value={10}>10</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                        </select>
-                      </label>
-                      
-                      {filteredTasks.length > 0 && (
-                        <button
-                          onClick={() => selectAllTasks(paginatedTasks.map(t => t.task_identifier))}
-                          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                        >
-                          Selecionar todos desta página
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Conteúdo das Tarefas */}
-                <div className="p-6">
-                  {viewMode === 'grid' ? (
-                    <TaskGrid
-                      tasks={paginatedTasks}
-                      selectedTasks={selectedTasks}
-                      onTaskSelect={toggleTaskSelection}
-                      onSelectAll={selectAllTasks}
-                      isTaskSelected={isTaskSelected}
-                      sortBy={filters.sortBy}
-                      sortOrder={filters.sortOrder}
-                      onSort={(field, order) => setFilters(prev => ({ ...prev, sortBy: field, sortOrder: order }))}
-                    />
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {paginatedTasks.map((task) => (
-                        <TaskCard
-                          key={task.task_identifier}
-                          task={task}
-                          isSelected={isTaskSelected(task.task_identifier)}
-                          onSelect={toggleTaskSelection}
-                        />
-                      ))}
-                    </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {task.identifier}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {task.model} • {task.working_directory}
+                  {task.orchestration_group && (
+                    <span> • Grupo: {task.orchestration_group}</span>
                   )}
-                </div>
+                </p>
+              </div>
+            </div>
+            <Badge variant={getStatusBadgeVariant(task.status)}>
+              {task.status}
+            </Badge>
+          </div>
+          
+          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+            {task.execution_prompt}
+          </p>
+          
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>Criada: {formatDate(task.created_at)}</span>
+            {task.execution_time && (
+              <span>Tempo: {formatExecutionTime(task.execution_time)}</span>
+            )}
+          </div>
+        </Stack>
+      </CardBody>
+    </Card>
+  );
 
-                {/* Paginação */}
-                {totalPages > 1 && (
-                  <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={() => handlePageChange(1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-                      >
-                        ⏮️ Primeira
-                      </button>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-                        >
-                          ◀️ Anterior
-                        </button>
-
-                        <span className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
-                          Página {currentPage} de {totalPages}
-                        </span>
-
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-                        >
-                          ▶️ Próxima
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => handlePageChange(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-                      >
-                        ⏭️ Última
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
+  const TaskListItem: React.FC<{ task: Task }> = ({ task }) => (
+    <div className={`
+      p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50
+      ${selectedTasks.has(task.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+    `}>
+      <div className="flex items-center gap-4">
+        <input
+          type="checkbox"
+          checked={selectedTasks.has(task.id)}
+          onChange={() => toggleTaskSelection(task.id)}
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        />
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-gray-900 dark:text-white truncate">
+              {task.identifier}
+            </h3>
+            <Badge variant={getStatusBadgeVariant(task.status)} size="sm">
+              {task.status}
+            </Badge>
+          </div>
+          
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
+            {task.execution_prompt}
+          </p>
+          
+          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <span>{task.model}</span>
+            <span>{task.working_directory}</span>
+            <span>Criada: {formatDate(task.created_at)}</span>
+            {task.execution_time && (
+              <span>Tempo: {formatExecutionTime(task.execution_time)}</span>
             )}
           </div>
         </div>
       </div>
-    </>
-  )
-}
+    </div>
+  );
 
-export default TaskListPage
+  const headerActions = (
+    <Stack direction="horizontal" gap="sm">
+      <Button variant="outline" size="md">
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+        Exportar
+      </Button>
+      
+      <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg">
+        <button
+          onClick={() => setViewMode('grid')}
+          className={`px-3 py-2 text-sm ${
+            viewMode === 'grid' 
+              ? 'bg-blue-500 text-white' 
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`px-3 py-2 text-sm ${
+            viewMode === 'list' 
+              ? 'bg-blue-500 text-white' 
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+      
+      <Button size="md">
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        Nova Task
+      </Button>
+    </Stack>
+  );
+
+  return (
+    <PageLayout>
+      <PageHeader
+        title="Lista de Tasks"
+        description={`${filteredTasks.length} tasks encontradas`}
+        actions={headerActions}
+      />
+
+      <Stack direction="vertical" gap="lg">
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Filtros
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <Grid cols={1} responsive={{ md: 2, lg: 4, xl: 6 }} gap="md">
+              <GridItem span={1} responsive={{ xl: 2 }}>
+                <Input
+                  placeholder="Buscar por nome, descrição ou diretório..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  leftIcon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  }
+                  fullWidth
+                />
+              </GridItem>
+              
+              <Select
+                options={statusOptions}
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                placeholder="Status"
+                fullWidth
+              />
+              
+              <Select
+                options={modelOptions}
+                value={filters.model}
+                onChange={(e) => handleFilterChange('model', e.target.value)}
+                placeholder="Modelo"
+                fullWidth
+              />
+              
+              <Select
+                options={dateRangeOptions}
+                value={filters.dateRange}
+                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                placeholder="Período"
+                fullWidth
+              />
+              
+              <Select
+                options={sortOptions}
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                fullWidth
+              />
+              
+              <Select
+                options={[
+                  { value: 'desc', label: 'Decrescente' },
+                  { value: 'asc', label: 'Crescente' }
+                ]}
+                value={filters.sortOrder}
+                onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
+                fullWidth
+              />
+            </Grid>
+          </CardBody>
+        </Card>
+
+        {/* Bulk Actions */}
+        {selectedTasks.size > 0 && (
+          <Card>
+            <CardBody>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {selectedTasks.size} task(s) selecionada(s)
+                </p>
+                <Stack direction="horizontal" gap="sm">
+                  <Button variant="outline" size="sm">
+                    Cancelar Tasks
+                  </Button>
+                  <Button variant="danger" size="sm">
+                    Excluir Tasks
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedTasks(new Set())}>
+                    Limpar Seleção
+                  </Button>
+                </Stack>
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* Tasks List/Grid */}
+        {loading ? (
+          viewMode === 'grid' ? (
+            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+              {[...Array(6)].map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </Grid>
+          ) : (
+            <Card>
+              <CardBody padding="none">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-4">
+                      <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-1"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardBody>
+            </Card>
+          )
+        ) : filteredTasks.length === 0 ? (
+          <Card>
+            <CardBody>
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                  Nenhuma task encontrada
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Ajuste os filtros ou crie uma nova task.
+                </p>
+                <div className="mt-6">
+                  <Button>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nova Task
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        ) : viewMode === 'grid' ? (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedTasks.size === filteredTasks.length && filteredTasks.length > 0}
+                  onChange={selectAllTasks}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Selecionar todas
+                </span>
+              </div>
+            </div>
+            
+            <Grid cols={1} responsive={{ md: 2, lg: 3 }} gap="lg">
+              {filteredTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </Grid>
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedTasks.size === filteredTasks.length && filteredTasks.length > 0}
+                  onChange={selectAllTasks}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Selecionar todas ({filteredTasks.length})
+                </span>
+              </div>
+            </CardHeader>
+            <CardBody padding="none">
+              {filteredTasks.map((task) => (
+                <TaskListItem key={task.id} task={task} />
+              ))}
+            </CardBody>
+          </Card>
+        )}
+      </Stack>
+    </PageLayout>
+  );
+}

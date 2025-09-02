@@ -3,8 +3,6 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/tasks": "pages/tasks.js",
-  "/admin/clear-tasks": "pages/admin/clear-tasks.js",
-  "/admin/delete-task": "pages/admin/delete-task.js",
-  "/tasks/create": "pages/tasks/create.js"
+  "/admin": "pages/admin.js",
+  "/sitemap": "pages/sitemap.js"
 }

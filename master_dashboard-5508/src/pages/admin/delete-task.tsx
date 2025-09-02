@@ -1,757 +1,453 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Search, 
-  Trash2, 
-  AlertTriangle, 
-  Eye,
-  RotateCcw,
-  Clock,
-  CheckCircle,
-  XCircle,
-  GitBranch,
-  Database,
-  FileText
-} from 'lucide-react'
-import AuditLog from '@/components/admin/AuditLog'
-import AdminLayout from '@/components/admin/AdminLayout'
-import toast from 'react-hot-toast'
-import Head from 'next/head'
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '../../components/layout/AdminLayout';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Card, CardHeader, CardBody } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Alert } from '../../components/ui/Alert';
+import { Grid } from '../../components/ui/Grid';
+import { Stack } from '../../components/ui/Stack';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 interface Task {
-  id: string
-  identifier: string
-  status: 'completed' | 'failed' | 'running' | 'pending'
-  created_at: string
-  finished_at?: string
-  execution_prompt: string
-  model: string
-  working_directory: string
-  dependencies?: string[]
-  dependents?: string[] // Tarefas que dependem desta
-  result?: any
+  id: string;
+  identifier: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  model?: string;
+  workingDirectory?: string;
 }
 
-interface AuditEntry {
-  id: string
-  timestamp: Date
-  action: 'delete' | 'clear' | 'restore' | 'create' | 'update'
-  user: string
-  target: string
-  details: string
-  status: 'success' | 'error' | 'warning'
-  metadata?: Record<string, any>
+interface DeleteResult {
+  success: boolean;
+  message: string;
+  taskId?: string;
 }
 
-const statusConfig = {
-  completed: {
-    icon: CheckCircle,
-    color: 'text-green-500',
-    bg: 'bg-green-100 dark:bg-green-900',
-    label: 'Completada'
-  },
-  failed: {
-    icon: XCircle,
-    color: 'text-red-500',
-    bg: 'bg-red-100 dark:bg-red-900',
-    label: 'Falhou'
-  },
-  running: {
-    icon: Clock,
-    color: 'text-blue-500',
-    bg: 'bg-blue-100 dark:bg-blue-900',
-    label: 'Em execução'
-  },
-  pending: {
-    icon: Clock,
-    color: 'text-yellow-500',
-    bg: 'bg-yellow-100 dark:bg-yellow-900',
-    label: 'Pendente'
-  }
-}
+const DeleteTaskPage: React.FC = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
+  const [selectedTask, setSelectedTask] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
-export default function DeleteTaskPage() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Task[]>([])
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [deletedTasks, setDeletedTasks] = useState<Task[]>([])
-  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
-  const [showDependencies, setShowDependencies] = useState(false)
-
-  // Carregar audit log inicial
-  useEffect(() => {
-    loadAuditLog()
-  }, [])
-
-  // Buscar tarefas conforme usuário digita
-  useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      searchTasks(searchQuery.trim())
-    } else {
-      setSearchResults([])
-    }
-  }, [searchQuery])
-
-  const loadAuditLog = () => {
-    // Simular carregamento do audit log
-    const mockEntries: AuditEntry[] = [
-      {
-        id: '1',
-        timestamp: new Date(Date.now() - 300000),
-        action: 'delete',
-        user: 'Admin',
-        target: 'task_analyze_code',
-        details: 'Tarefa deletada via interface admin',
-        status: 'success',
-        metadata: { taskId: 'task_analyze_code', reason: 'Limpeza manual' }
-      },
-      {
-        id: '2',
-        timestamp: new Date(Date.now() - 600000),
-        action: 'restore',
-        user: 'Admin',
-        target: 'task_fix_bugs',
-        details: 'Tarefa restaurada após soft delete',
-        status: 'success',
-        metadata: { taskId: 'task_fix_bugs', reason: 'Restauração solicitada' }
-      }
-    ]
-    setAuditEntries(mockEntries)
-  }
-
-  const searchTasks = async (query: string) => {
+  // Simular carregamento de tasks
+  const loadTasks = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Simular busca na API
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      // Dados mockados
       const mockTasks: Task[] = [
         {
-          id: '1',
-          identifier: 'analyze_code_quality',
-          status: 'completed' as const,
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          finished_at: new Date(Date.now() - 86300000).toISOString(),
-          execution_prompt: 'Analisar qualidade do código Python utilizando ferramentas estáticas',
+          id: 'task-1',
+          identifier: 'analyze_project',
+          status: 'completed',
+          title: 'Análise do projeto principal',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          updatedAt: new Date(Date.now() - 80000000).toISOString(),
           model: 'opus',
-          working_directory: '/app/src',
-          dependencies: [],
-          dependents: ['fix_code_issues', 'generate_report']
+          workingDirectory: '/project'
         },
         {
-          id: '2',
-          identifier: 'fix_code_issues',
-          status: 'failed' as const,
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          finished_at: new Date(Date.now() - 3500000).toISOString(),
-          execution_prompt: 'Corrigir issues encontrados na análise de qualidade',
+          id: 'task-2',
+          identifier: 'fix_bugs',
+          status: 'failed',
+          title: 'Correção de bugs críticos',
+          createdAt: new Date(Date.now() - 7200000).toISOString(),
+          updatedAt: new Date(Date.now() - 6900000).toISOString(),
           model: 'sonnet',
-          working_directory: '/app/src',
-          dependencies: ['analyze_code_quality'],
-          dependents: ['run_final_tests']
+          workingDirectory: '/project/src'
         },
         {
-          id: '3',
-          identifier: 'generate_detailed_report',
-          status: 'completed' as const,
-          created_at: new Date(Date.now() - 7200000).toISOString(),
-          finished_at: new Date(Date.now() - 7000000).toISOString(),
-          execution_prompt: 'Gerar relatório detalhado da análise de código',
+          id: 'task-3',
+          identifier: 'update_docs',
+          status: 'completed',
+          title: 'Atualização da documentação',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          updatedAt: new Date(Date.now() - 3300000).toISOString(),
           model: 'haiku',
-          working_directory: '/app/reports',
-          dependencies: ['analyze_code_quality'],
-          dependents: []
+          workingDirectory: '/docs'
+        },
+        {
+          id: 'task-4',
+          identifier: 'optimize_code',
+          status: 'running',
+          title: 'Otimização de performance',
+          createdAt: new Date(Date.now() - 1800000).toISOString(),
+          updatedAt: new Date(Date.now() - 300000).toISOString(),
+          model: 'opus',
+          workingDirectory: '/project/src'
+        },
+        {
+          id: 'task-5',
+          identifier: 'test_suite',
+          status: 'pending',
+          title: 'Execução da suite de testes',
+          createdAt: new Date(Date.now() - 900000).toISOString(),
+          updatedAt: new Date(Date.now() - 900000).toISOString(),
+          model: 'sonnet',
+          workingDirectory: '/project/tests'
         }
-      ].filter(task => 
-        task.identifier.toLowerCase().includes(query.toLowerCase()) ||
-        task.execution_prompt.toLowerCase().includes(query.toLowerCase())
-      )
-
-      setSearchResults(mockTasks)
-    } catch (error) {
-      toast.error('Erro ao buscar tarefas')
-      console.error(error)
+      ];
+      
+      setTasks(mockTasks);
+    } catch (err) {
+      setError('Erro ao carregar lista de tasks');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleSelectTask = (task: Task) => {
-    setSelectedTask(task)
-    setShowDependencies(true)
-  }
-
-  const canDeleteTask = (task: Task): { canDelete: boolean, reason?: string } => {
-    if (task.status === 'running') {
-      return { canDelete: false, reason: 'Tarefa em execução não pode ser deletada' }
-    }
+  // Simular operação de delete
+  const handleDeleteTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
-    if (task.dependents && task.dependents.length > 0) {
-      return { 
-        canDelete: false, 
-        reason: `Esta tarefa possui ${task.dependents.length} dependente(s) que serão afetados` 
-      }
-    }
-    
-    return { canDelete: true }
-  }
-
-  const handleDeleteTask = () => {
-    if (!selectedTask) return
-    
-    const { canDelete, reason } = canDeleteTask(selectedTask)
-    if (!canDelete) {
-      toast.error(reason || 'Não é possível deletar esta tarefa')
-      return
-    }
-    
-    setShowConfirmation(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!selectedTask) return
-
     try {
-      setDeleting(true)
+      setDeleting(taskId);
+      setError(null);
+      setDeleteResult(null);
       
-      // Simular soft delete
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Simular delay de operação
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Adicionar ao histórico de deletadas
-      setDeletedTasks(prev => [selectedTask, ...prev])
-      
-      // Adicionar ao audit log
-      const newAuditEntry: AuditEntry = {
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        action: 'delete',
-        user: 'Admin',
-        target: selectedTask.identifier,
-        details: `Tarefa deletada via interface admin - ${selectedTask.execution_prompt.substring(0, 50)}...`,
-        status: 'success',
-        metadata: { 
-          taskId: selectedTask.id,
-          reason: 'Deleção manual',
-          softDelete: true,
-          restoreUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias para restore
-        }
+      // Verificar se task pode ser deletada (não pode deletar tasks em execução)
+      if (task.status === 'running') {
+        throw new Error('Não é possível deletar uma task que está em execução');
       }
       
-      setAuditEntries(prev => [newAuditEntry, ...prev])
+      // Simular resultado de sucesso
+      const result: DeleteResult = {
+        success: true,
+        message: `Task "${task.identifier}" foi removida com sucesso`,
+        taskId: taskId
+      };
       
-      // Remover das results de busca
-      setSearchResults(prev => prev.filter(task => task.id !== selectedTask.id))
+      setDeleteResult(result);
       
-      setSelectedTask(null)
-      setShowConfirmation(false)
-      setShowDependencies(false)
+      // Remover task da lista
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setSelectedTask('');
       
-      toast.success('Tarefa deletada com sucesso. Pode ser restaurada nos próximos 7 dias.')
-      
-    } catch (error) {
-      toast.error('Erro ao deletar tarefa')
-      console.error(error)
+    } catch (err) {
+      const result: DeleteResult = {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erro ao deletar task. Tente novamente.',
+        taskId: taskId
+      };
+      setDeleteResult(result);
     } finally {
-      setDeleting(false)
+      setDeleting(null);
     }
-  }
+  };
 
-  const handleRestoreTask = async (task: Task) => {
-    try {
-      // Simular restore da API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Remover da lista de deletadas
-      setDeletedTasks(prev => prev.filter(t => t.id !== task.id))
-      
-      // Adicionar ao audit log
-      const newAuditEntry: AuditEntry = {
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        action: 'restore',
-        user: 'Admin',
-        target: task.identifier,
-        details: `Tarefa restaurada após soft delete`,
-        status: 'success',
-        metadata: { 
-          taskId: task.id,
-          reason: 'Restauração manual'
-        }
-      }
-      
-      setAuditEntries(prev => [newAuditEntry, ...prev])
-      
-      toast.success('Tarefa restaurada com sucesso')
-      
-    } catch (error) {
-      toast.error('Erro ao restaurar tarefa')
-      console.error(error)
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const getStatusBadgeProps = (status: Task['status']) => {
+    switch (status) {
+      case 'completed':
+        return { variant: 'success' as const, text: 'Concluída' };
+      case 'running':
+        return { variant: 'info' as const, text: 'Executando' };
+      case 'pending':
+        return { variant: 'warning' as const, text: 'Pendente' };
+      case 'failed':
+        return { variant: 'danger' as const, text: 'Falha' };
+      default:
+        return { variant: 'default' as const, text: 'Desconhecido' };
     }
-  }
+  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR')
-  }
+  const formatRelativeTime = (isoString: string) => {
+    const now = new Date();
+    const time = new Date(isoString);
+    const diffMs = now.getTime() - time.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    
+    if (diffSecs < 60) return `${diffSecs}s atrás`;
+    if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m atrás`;
+    if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)}h atrás`;
+    return `${Math.floor(diffSecs / 86400)}d atrás`;
+  };
+
+  const filteredTasks = tasks.filter(task =>
+    task.identifier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedTaskData = selectedTask ? tasks.find(t => t.id === selectedTask) : null;
+  const canDelete = selectedTaskData && selectedTaskData.status !== 'running';
 
   return (
     <AdminLayout>
-      <Head>
-        <title>Deletar Tarefa - Dashboard Admin</title>
-      </Head>
-
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+      <PageHeader
+        title="Delete Task"
+        description="Remover uma task específica do sistema. Tasks em execução não podem ser removidas."
+        actions={
+          <Button
+            variant="secondary"
+            onClick={loadTasks}
+            loading={loading}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            }
           >
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Gerenciar Tarefas
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Busque, visualize e gerencie tarefas individuais com controle de dependências
-            </p>
-          </motion.div>
+            Atualizar
+          </Button>
+        }
+      />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Search and Results */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Search Bar */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
-              >
+      <Stack spacing="lg">
+        {/* Alertas */}
+        {error && (
+          <Alert variant="danger" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {deleteResult && (
+          <Alert 
+            variant={deleteResult.success ? 'success' : 'danger'}
+            onClose={() => setDeleteResult(null)}
+          >
+            {deleteResult.message}
+          </Alert>
+        )}
+
+        <Grid cols="1" responsive={{ lg: 2 }} gap="lg">
+          {/* Lista de Tasks */}
+          <Card>
+            <CardHeader>
+              <Stack direction="horizontal" spacing="sm" align="center" justify="between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Selecionar Task
+                </h3>
+                <Badge variant="default" size="sm">
+                  {filteredTasks.length} tasks
+                </Badge>
+              </Stack>
+            </CardHeader>
+            <CardBody>
+              <Stack spacing="md">
+                {/* Busca */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Buscar tarefa por ID ou descrição..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
+                    placeholder="Buscar por identificador ou título..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="
+                      w-full pl-10 pr-4 py-2 
+                      border border-gray-300 dark:border-gray-600
+                      rounded-lg 
+                      bg-white dark:bg-gray-700
+                      text-gray-900 dark:text-white
+                      placeholder-gray-500 dark:placeholder-gray-400
+                      focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                      transition-colors
+                    "
                   />
-                  {loading && (
-                    <div className="absolute right-3 top-3">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full"
-                      />
+                  <svg 
+                    className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+
+                {/* Lista de Tasks */}
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {loading ? (
+                    Array.from({ length: 5 }, (_, i) => (
+                      <div key={i} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <Skeleton variant="text" className="mb-2" />
+                        <Skeleton variant="text" className="w-3/4" />
+                      </div>
+                    ))
+                  ) : filteredTasks.length > 0 ? (
+                    filteredTasks.map((task) => (
+                      <label 
+                        key={task.id}
+                        className={`
+                          block p-3 border rounded-lg cursor-pointer transition-all
+                          ${selectedTask === task.id 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="selectedTask"
+                          value={task.id}
+                          checked={selectedTask === task.id}
+                          onChange={(e) => setSelectedTask(e.target.value)}
+                          className="sr-only"
+                        />
+                        <Stack spacing="sm">
+                          <Stack direction="horizontal" spacing="sm" align="center" justify="between">
+                            <div className="font-mono text-sm text-gray-900 dark:text-white">
+                              {task.identifier}
+                            </div>
+                            <Badge {...getStatusBadgeProps(task.status)} size="sm">
+                              {getStatusBadgeProps(task.status).text}
+                            </Badge>
+                          </Stack>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            {task.title}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Criada {formatRelativeTime(task.createdAt)}
+                          </div>
+                        </Stack>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Nenhuma task encontrada
+                      </p>
                     </div>
                   )}
                 </div>
-                
-                {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Digite pelo menos 2 caracteres para buscar
-                  </p>
-                )}
-              </motion.div>
+              </Stack>
+            </CardBody>
+          </Card>
 
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow"
-                >
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Resultados da Busca ({searchResults.length})
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      {searchResults.map((task, index) => {
-                        const StatusIcon = statusConfig[task.status].icon
-                        const { canDelete, reason } = canDeleteTask(task)
-                        
-                        return (
-                          <motion.div
-                            key={task.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className={`
-                              border rounded-lg p-4 transition-all duration-200 hover:shadow-md cursor-pointer
-                              ${selectedTask?.id === task.id 
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                                : 'border-gray-200 dark:border-gray-700'
-                              }
-                            `}
-                            onClick={() => handleSelectTask(task)}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <div className={`p-1 rounded-full ${statusConfig[task.status].bg}`}>
-                                    <StatusIcon className={`w-4 h-4 ${statusConfig[task.status].color}`} />
-                                  </div>
-                                  <span className="font-semibold text-gray-900 dark:text-white">
-                                    {task.identifier}
-                                  </span>
-                                  <span className={`
-                                    px-2 py-1 text-xs font-medium rounded-full
-                                    ${statusConfig[task.status].bg} ${statusConfig[task.status].color}
-                                  `}>
-                                    {statusConfig[task.status].label}
-                                  </span>
-                                  {!canDelete && (
-                                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                                  )}
-                                </div>
-                                
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                  {task.execution_prompt}
-                                </p>
-                                
-                                <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                  <span>Modelo: {task.model}</span>
-                                  <span>Criado: {formatDate(task.created_at)}</span>
-                                  {task.dependencies && task.dependencies.length > 0 && (
-                                    <span className="flex items-center">
-                                      <GitBranch className="w-3 h-3 mr-1" />
-                                      {task.dependencies.length} dep.
-                                    </span>
-                                  )}
-                                  {task.dependents && task.dependents.length > 0 && (
-                                    <span className="flex items-center text-yellow-600">
-                                      <AlertTriangle className="w-3 h-3 mr-1" />
-                                      {task.dependents.length} afetadas
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {!canDelete && (
-                                  <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-800 dark:text-yellow-200">
-                                    ⚠️ {reason}
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    // View task details
-                                  }}
-                                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                                >
-                                  <Eye className="w-4 h-4 text-gray-400" />
-                                </button>
-                                
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleSelectTask(task)
-                                    if (canDelete) handleDeleteTask()
-                                  }}
-                                  disabled={!canDelete}
-                                  className={`
-                                    p-2 rounded-lg transition-colors
-                                    ${canDelete 
-                                      ? 'hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500' 
-                                      : 'text-gray-300 cursor-not-allowed'
-                                    }
-                                  `}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Deleted Tasks Recovery */}
-              {deletedTasks.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow"
-                >
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                      <Database className="w-5 h-5 mr-2 text-blue-500" />
-                      Tarefas Deletadas (Recuperáveis)
-                    </h3>
-                    
-                    <div className="space-y-3">
-                      {deletedTasks.map((task, index) => (
-                        <motion.div
-                          key={task.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.1 }}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                        >
-                          <div>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              {task.identifier}
-                            </span>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-md">
-                              {task.execution_prompt}
-                            </p>
-                          </div>
-                          
-                          <button
-                            onClick={() => handleRestoreTask(task)}
-                            className="flex items-center space-x-1 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                            <span>Restaurar</span>
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Audit Log Sidebar */}
-            <div className="space-y-6">
-              <AuditLog 
-                entries={auditEntries}
-                maxEntries={20}
-                autoRefresh={true}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Dependencies Modal */}
-        <AnimatePresence>
-          {showDependencies && selectedTask && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowDependencies(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Detalhes da Tarefa
-                  </h3>
-                  <button
-                    onClick={() => setShowDependencies(false)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* Task Info */}
-                <div className="mb-6">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className={`p-2 rounded-full ${statusConfig[selectedTask.status].bg}`}>
-                      {(() => {
-                        const StatusIcon = statusConfig[selectedTask.status].icon
-                        return <StatusIcon className={`w-5 h-5 ${statusConfig[selectedTask.status].color}`} />
-                      })()}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {selectedTask.identifier}
-                      </h4>
-                      <span className={`
-                        px-2 py-1 text-xs font-medium rounded-full
-                        ${statusConfig[selectedTask.status].bg} ${statusConfig[selectedTask.status].color}
-                      `}>
-                        {statusConfig[selectedTask.status].label}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {selectedTask.execution_prompt}
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Modelo:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{selectedTask.model}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Diretório:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white font-mono text-xs">
-                        {selectedTask.working_directory}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Criado:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">
-                        {formatDate(selectedTask.created_at)}
-                      </span>
-                    </div>
-                    {selectedTask.finished_at && (
-                      <div>
-                        <span className="text-gray-500">Finalizado:</span>
-                        <span className="ml-2 text-gray-900 dark:text-white">
-                          {formatDate(selectedTask.finished_at)}
-                        </span>
+          {/* Detalhes e Ação de Delete */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Detalhes e Ação
+              </h3>
+            </CardHeader>
+            <CardBody>
+              {selectedTaskData ? (
+                <Stack spacing="md">
+                  {/* Detalhes da Task */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <Stack spacing="sm">
+                      <Stack direction="horizontal" spacing="sm" align="center" justify="between">
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                          {selectedTaskData.identifier}
+                        </h4>
+                        <Badge {...getStatusBadgeProps(selectedTaskData.status)}>
+                          {getStatusBadgeProps(selectedTaskData.status).text}
+                        </Badge>
+                      </Stack>
+                      
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedTaskData.title}
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Dependencies */}
-                {(selectedTask.dependencies?.length || selectedTask.dependents?.length) && (
-                  <div className="mb-6">
-                    <h5 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                      <GitBranch className="w-4 h-4 mr-2" />
-                      Dependências
-                    </h5>
-                    
-                    {selectedTask.dependencies && selectedTask.dependencies.length > 0 && (
-                      <div className="mb-4">
-                        <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Depende de:
-                        </h6>
-                        <div className="space-y-1">
-                          {selectedTask.dependencies.map((dep, index) => (
-                            <div key={index} className="text-sm text-gray-600 dark:text-gray-400 pl-4 border-l-2 border-green-200 dark:border-green-800">
-                              {dep}
-                            </div>
-                          ))}
+                      
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Model:</span>
+                          <div className="font-mono">{selectedTaskData.model || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Diretório:</span>
+                          <div className="font-mono truncate">{selectedTaskData.workingDirectory || 'N/A'}</div>
                         </div>
                       </div>
-                    )}
-                    
-                    {selectedTask.dependents && selectedTask.dependents.length > 0 && (
-                      <div>
-                        <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                          <AlertTriangle className="w-4 h-4 mr-1 text-yellow-500" />
-                          Tarefas afetadas pela deleção:
-                        </h6>
-                        <div className="space-y-1">
-                          {selectedTask.dependents.map((dep, index) => (
-                            <div key={index} className="text-sm text-yellow-700 dark:text-yellow-300 pl-4 border-l-2 border-yellow-200 dark:border-yellow-800">
-                              {dep}
-                            </div>
-                          ))}
+                      
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Criada:</span>
+                          <div>{formatRelativeTime(selectedTaskData.createdAt)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Atualizada:</span>
+                          <div>{formatRelativeTime(selectedTaskData.updatedAt)}</div>
                         </div>
                       </div>
-                    )}
+                    </Stack>
                   </div>
-                )}
 
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowDependencies(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  
-                  {(() => {
-                    const { canDelete, reason } = canDeleteTask(selectedTask)
-                    return canDelete ? (
-                      <button
-                        onClick={() => {
-                          setShowDependencies(false)
-                          handleDeleteTask()
-                        }}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Deletar Tarefa
-                      </button>
-                    ) : (
-                      <div className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed flex items-center">
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Não Permitido
+                  {/* Aviso de Segurança */}
+                  {canDelete ? (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <div className="ml-3">
+                          <h4 className="text-sm font-medium text-red-800 dark:text-red-300">
+                            Ação Irreversível
+                          </h4>
+                          <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                            Esta operação irá remover permanentemente a task selecionada do sistema. 
+                            Esta ação não pode ser desfeita.
+                          </p>
+                        </div>
                       </div>
-                    )
-                  })()}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    </div>
+                  ) : (
+                    <Alert variant="warning">
+                      Tasks em execução não podem ser removidas. Aguarde a conclusão ou falha da task.
+                    </Alert>
+                  )}
 
-        {/* Delete Confirmation Modal */}
-        <AnimatePresence>
-          {showConfirmation && selectedTask && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full"
-              >
-                <div className="flex items-center mb-4">
-                  <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full mr-4">
-                    <Trash2 className="w-6 h-6 text-red-500" />
+                  {/* Botões de Ação */}
+                  <Stack direction="horizontal" spacing="sm" align="center">
+                    <Button
+                      variant="danger"
+                      onClick={() => handleDeleteTask(selectedTaskData.id)}
+                      disabled={!canDelete}
+                      loading={deleting === selectedTaskData.id}
+                      leftIcon={
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      }
+                    >
+                      {deleting === selectedTaskData.id ? 'Deletando...' : 'Deletar Task'}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedTask('')}
+                    >
+                      Cancelar
+                    </Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full inline-flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Confirmar Deleção
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Selecione uma Task
                   </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Escolha uma task da lista ao lado para ver os detalhes e opção de remoção.
+                  </p>
                 </div>
-                
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Tem certeza de que deseja deletar a tarefa <strong>{selectedTask.identifier}</strong>? 
-                  Esta é uma deleção suave - a tarefa pode ser restaurada nos próximos 7 dias.
-                </p>
-                
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowConfirmation(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={deleting}
-                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    {deleting ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
-                        />
-                        Deletando...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Confirmar
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              )}
+            </CardBody>
+          </Card>
+        </Grid>
+      </Stack>
     </AdminLayout>
-  )
-}
+  );
+};
+
+export default DeleteTaskPage;

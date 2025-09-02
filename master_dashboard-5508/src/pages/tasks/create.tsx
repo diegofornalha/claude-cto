@@ -1,294 +1,441 @@
-import React, { useState } from 'react'
-import { useRouter } from 'next/router'
-import Head from 'next/head'
-import { MCPApiService } from '@/services/mcp-api'
-import { useTaskStore } from '@/store/taskStore'
+import React, { useState } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Badge } from '@/components/ui/Badge';
+import { Grid, GridItem } from '@/components/ui/Grid';
+import { Stack } from '@/components/ui/Stack';
 
-const CreateTaskSimplePage: React.FC = () => {
-  const router = useRouter()
-  const { addTask } = useTaskStore()
-
-  const [formData, setFormData] = useState({
-    task_identifier: '',
-    execution_prompt: '',
-    working_directory: '.',
-    model: 'sonnet',
-    system_prompt: '',
-    orchestration_group: '',
-    depends_on: '',
-    wait_after_dependencies: 0
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError('')
-    setSuccess('')
-
-    try {
-      const taskData = {
-        task_identifier: formData.task_identifier,
-        execution_prompt: formData.execution_prompt,
-        working_directory: formData.working_directory || '.',
-        model: formData.model as any,
-        system_prompt: formData.system_prompt || undefined,
-        orchestration_group: formData.orchestration_group || undefined,
-        depends_on: formData.depends_on ? formData.depends_on.split(',').map(s => s.trim()) : undefined,
-        wait_after_dependencies: formData.wait_after_dependencies || undefined
-      }
-
-      const newTask = await MCPApiService.createTask(taskData)
-      addTask(newTask)
-      setSuccess('Tarefa criada com sucesso!')
-      
-      // Redirecionar após 2 segundos
-      setTimeout(() => {
-        router.push('/tasks')
-      }, 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar tarefa')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'wait_after_dependencies' ? parseFloat(value) || 0 : value
-    }))
-  }
-
-  const handleReset = () => {
-    setFormData({
-      task_identifier: '',
-      execution_prompt: '',
-      working_directory: '.',
-      model: 'sonnet',
-      system_prompt: '',
-      orchestration_group: '',
-      depends_on: '',
-      wait_after_dependencies: 0
-    })
-    setError('')
-    setSuccess('')
-  }
-
-  const isValid = formData.task_identifier.length > 0 && formData.execution_prompt.length >= 150
-
-  return (
-    <>
-      <Head>
-        <title>Criar Tarefa - Claude CTO Dashboard</title>
-      </Head>
-
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Criar Nova Tarefa
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Configure e execute uma nova tarefa no Claude CTO
-              </p>
-            </div>
-
-            {/* Alerts */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-red-800 dark:text-red-300">{error}</p>
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-green-800 dark:text-green-300">{success}</p>
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <div className="space-y-6">
-                {/* Task Identifier */}
-                <div>
-                  <label htmlFor="task_identifier" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Identificador da Tarefa *
-                  </label>
-                  <input
-                    type="text"
-                    id="task_identifier"
-                    name="task_identifier"
-                    value={formData.task_identifier}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="ex: analyze_code_quality"
-                    required
-                  />
-                </div>
-
-                {/* Execution Prompt */}
-                <div>
-                  <label htmlFor="execution_prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Prompt de Execução * (mínimo 150 caracteres)
-                  </label>
-                  <textarea
-                    id="execution_prompt"
-                    name="execution_prompt"
-                    value={formData.execution_prompt}
-                    onChange={handleChange}
-                    rows={6}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Descreva detalhadamente a tarefa..."
-                    required
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    {formData.execution_prompt.length}/150 caracteres
-                  </p>
-                </div>
-
-                {/* Model */}
-                <div>
-                  <label htmlFor="model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Modelo
-                  </label>
-                  <select
-                    id="model"
-                    name="model"
-                    value={formData.model}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="opus">Opus (Complexo)</option>
-                    <option value="sonnet">Sonnet (Balanceado)</option>
-                    <option value="haiku">Haiku (Simples)</option>
-                  </select>
-                </div>
-
-                {/* Working Directory */}
-                <div>
-                  <label htmlFor="working_directory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Diretório de Trabalho
-                  </label>
-                  <input
-                    type="text"
-                    id="working_directory"
-                    name="working_directory"
-                    value={formData.working_directory}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="."
-                  />
-                </div>
-
-                {/* Advanced Options */}
-                <details className="border-t pt-6">
-                  <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                    Opções Avançadas
-                  </summary>
-                  
-                  <div className="space-y-4 mt-4">
-                    {/* System Prompt */}
-                    <div>
-                      <label htmlFor="system_prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        System Prompt
-                      </label>
-                      <textarea
-                        id="system_prompt"
-                        name="system_prompt"
-                        value={formData.system_prompt}
-                        onChange={handleChange}
-                        rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Instruções específicas..."
-                      />
-                    </div>
-
-                    {/* Orchestration Group */}
-                    <div>
-                      <label htmlFor="orchestration_group" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Grupo de Orquestração
-                      </label>
-                      <input
-                        type="text"
-                        id="orchestration_group"
-                        name="orchestration_group"
-                        value={formData.orchestration_group}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="ex: backend_refactor"
-                      />
-                    </div>
-
-                    {/* Dependencies */}
-                    <div>
-                      <label htmlFor="depends_on" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Dependências (separadas por vírgula)
-                      </label>
-                      <input
-                        type="text"
-                        id="depends_on"
-                        name="depends_on"
-                        value={formData.depends_on}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="task1, task2"
-                      />
-                    </div>
-
-                    {/* Wait After Dependencies */}
-                    <div>
-                      <label htmlFor="wait_after_dependencies" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Aguardar após dependências (segundos)
-                      </label>
-                      <input
-                        type="number"
-                        id="wait_after_dependencies"
-                        name="wait_after_dependencies"
-                        value={formData.wait_after_dependencies}
-                        onChange={handleChange}
-                        min="0"
-                        step="0.1"
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </details>
-
-                {/* Actions */}
-                <div className="flex gap-4 pt-6 border-t">
-                  <button
-                    type="submit"
-                    disabled={!isValid || isSubmitting}
-                    className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                      isValid && !isSubmitting
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {isSubmitting ? 'Criando...' : 'Criar Tarefa'}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Limpar
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
-  )
+// Types
+interface TaskFormData {
+  identifier: string;
+  execution_prompt: string;
+  working_directory: string;
+  model: 'opus' | 'sonnet' | 'haiku';
+  system_prompt?: string;
+  depends_on: string[];
+  wait_after_dependencies?: number;
+  orchestration_group?: string;
 }
 
-export default CreateTaskSimplePage
+interface TaskTemplate {
+  id: string;
+  name: string;
+  description: string;
+  template: Partial<TaskFormData>;
+  category: 'development' | 'testing' | 'deployment' | 'analysis';
+}
+
+// Mock templates
+const templates: TaskTemplate[] = [
+  {
+    id: 'refactor-component',
+    name: 'Refatorar Componente',
+    description: 'Template para refatoração de componentes React',
+    category: 'development',
+    template: {
+      execution_prompt: 'Refatorar o componente [NOME_COMPONENTE] aplicando as melhores práticas do React e TypeScript. Melhorar legibilidade, performance e manutenibilidade.',
+      model: 'sonnet',
+      working_directory: './src/components'
+    }
+  },
+  {
+    id: 'add-tests',
+    name: 'Adicionar Testes',
+    description: 'Template para criação de testes unitários',
+    category: 'testing',
+    template: {
+      execution_prompt: 'Criar testes unitários abrangentes para [MÓDULO/COMPONENTE] usando Jest e Testing Library. Incluir casos de teste para cenários positivos, negativos e edge cases.',
+      model: 'haiku',
+      working_directory: './src/tests'
+    }
+  },
+  {
+    id: 'api-optimization',
+    name: 'Otimização de API',
+    description: 'Template para otimizar endpoints de API',
+    category: 'development',
+    template: {
+      execution_prompt: 'Otimizar o endpoint [ENDPOINT_NAME] para melhorar performance. Analisar queries de banco, implementar cache, validar payloads e adicionar rate limiting se necessário.',
+      model: 'opus',
+      working_directory: './src/api'
+    }
+  },
+  {
+    id: 'bug-fix',
+    name: 'Correção de Bug',
+    description: 'Template para correção sistemática de bugs',
+    category: 'development',
+    template: {
+      execution_prompt: 'Investigar e corrigir o bug: [DESCRIÇÃO_DO_BUG]. Identificar causa raiz, implementar correção, adicionar testes para prevenir regressão.',
+      model: 'sonnet',
+      working_directory: './'
+    }
+  }
+];
+
+const modelOptions = [
+  { value: 'opus', label: 'Opus (Complexo)' },
+  { value: 'sonnet', label: 'Sonnet (Equilibrado)' },
+  { value: 'haiku', label: 'Haiku (Rápido)' }
+];
+
+export default function CreateTask() {
+  const [formData, setFormData] = useState<TaskFormData>({
+    identifier: '',
+    execution_prompt: '',
+    working_directory: './',
+    model: 'sonnet',
+    system_prompt: '',
+    depends_on: [],
+    wait_after_dependencies: undefined,
+    orchestration_group: ''
+  });
+
+  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Partial<TaskFormData>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const handleInputChange = (field: keyof TaskFormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
+  };
+
+  const applyTemplate = (template: TaskTemplate) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({
+      ...prev,
+      ...template.template
+    }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<TaskFormData> = {};
+
+    if (!formData.identifier.trim()) {
+      newErrors.identifier = 'Identificador é obrigatório';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.identifier)) {
+      newErrors.identifier = 'Identificador deve conter apenas letras, números, _ e -';
+    }
+
+    if (!formData.execution_prompt.trim()) {
+      newErrors.execution_prompt = 'Prompt de execução é obrigatório';
+    } else if (formData.execution_prompt.length < 50) {
+      newErrors.execution_prompt = 'Prompt deve ter pelo menos 50 caracteres';
+    }
+
+    if (!formData.working_directory.trim()) {
+      newErrors.working_directory = 'Diretório de trabalho é obrigatório';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Simular chamada API
+      console.log('Criando task:', formData);
+      
+      // Aqui você faria a chamada real para a API
+      // const response = await createTask(formData);
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Reset form after success
+      setFormData({
+        identifier: '',
+        execution_prompt: '',
+        working_directory: './',
+        model: 'sonnet',
+        system_prompt: '',
+        depends_on: [],
+        wait_after_dependencies: undefined,
+        orchestration_group: ''
+      });
+      
+      setSelectedTemplate(null);
+      
+      alert('Task criada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar task:', error);
+      alert('Erro ao criar task. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTemplatesByCategory = (category: TaskTemplate['category']) => 
+    templates.filter(t => t.category === category);
+
+  const headerActions = (
+    <Stack direction="horizontal" gap="sm">
+      <Button variant="outline" size="md">
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        Templates
+      </Button>
+    </Stack>
+  );
+
+  return (
+    <PageLayout>
+      <PageHeader
+        title="Nova Task"
+        description="Crie uma nova task de desenvolvimento automatizada"
+        actions={headerActions}
+      />
+
+      <Grid cols={1} responsive={{ lg: 3 }} gap="lg">
+        {/* Templates Section */}
+        <GridItem span={1}>
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Templates Disponíveis
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Use templates pré-definidos para acelerar a criação
+              </p>
+            </CardHeader>
+            <CardBody>
+              <Stack direction="vertical" gap="md">
+                {['development', 'testing', 'deployment', 'analysis'].map(category => {
+                  const categoryTemplates = getTemplatesByCategory(category as TaskTemplate['category']);
+                  if (categoryTemplates.length === 0) return null;
+
+                  return (
+                    <div key={category}>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
+                        {category}
+                      </h4>
+                      <Stack direction="vertical" gap="xs">
+                        {categoryTemplates.map(template => (
+                          <Card
+                            key={template.id}
+                            hoverable
+                            className={`cursor-pointer transition-colors ${
+                              selectedTemplate?.id === template.id 
+                                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                : ''
+                            }`}
+                            onClick={() => applyTemplate(template)}
+                          >
+                            <CardBody padding="sm">
+                              <h5 className="font-medium text-gray-900 dark:text-white text-sm">
+                                {template.name}
+                              </h5>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                {template.description}
+                              </p>
+                            </CardBody>
+                          </Card>
+                        ))}
+                      </Stack>
+                    </div>
+                  );
+                })}
+              </Stack>
+            </CardBody>
+          </Card>
+        </GridItem>
+
+        {/* Form Section */}
+        <GridItem span={1} responsive={{ lg: 2 }}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Configuração da Task
+                  </h3>
+                  {selectedTemplate && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Template aplicado:
+                      </span>
+                      <Badge variant="info" size="sm">
+                        {selectedTemplate.name}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  {showAdvanced ? 'Ocultar' : 'Avançado'}
+                </Button>
+              </div>
+            </CardHeader>
+            
+            <CardBody>
+              <form onSubmit={handleSubmit}>
+                <Stack direction="vertical" gap="lg">
+                  {/* Basic Fields */}
+                  <Grid cols={1} responsive={{ md: 2 }} gap="md">
+                    <Input
+                      label="Identificador"
+                      placeholder="ex: refactor-auth-module"
+                      value={formData.identifier}
+                      onChange={(e) => handleInputChange('identifier', e.target.value)}
+                      error={errors.identifier}
+                      helperText="Nome único para identificar a task"
+                      fullWidth
+                      required
+                    />
+
+                    <Select
+                      label="Modelo"
+                      options={modelOptions}
+                      value={formData.model}
+                      onChange={(e) => handleInputChange('model', e.target.value)}
+                      helperText="Escolha baseado na complexidade"
+                      fullWidth
+                    />
+                  </Grid>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Prompt de Execução *
+                    </label>
+                    <textarea
+                      className={`
+                        w-full px-4 py-3 rounded-lg border transition-all duration-200
+                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+                        placeholder:text-gray-400 dark:placeholder:text-gray-500
+                        focus:outline-none focus:ring-2 focus:ring-blue-500
+                        ${errors.execution_prompt 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 dark:border-gray-600'
+                        }
+                      `}
+                      rows={4}
+                      placeholder="Descreva detalhadamente o que a task deve fazer..."
+                      value={formData.execution_prompt}
+                      onChange={(e) => handleInputChange('execution_prompt', e.target.value)}
+                      required
+                    />
+                    {errors.execution_prompt && (
+                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {errors.execution_prompt}
+                      </p>
+                    )}
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      {formData.execution_prompt.length}/150+ caracteres
+                    </p>
+                  </div>
+
+                  <Input
+                    label="Diretório de Trabalho"
+                    placeholder="ex: ./src/components"
+                    value={formData.working_directory}
+                    onChange={(e) => handleInputChange('working_directory', e.target.value)}
+                    error={errors.working_directory}
+                    helperText="Diretório onde a task será executada"
+                    fullWidth
+                    required
+                  />
+
+                  {/* Advanced Fields */}
+                  {showAdvanced && (
+                    <Stack direction="vertical" gap="md">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          System Prompt (Opcional)
+                        </label>
+                        <textarea
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={3}
+                          placeholder="Instruções especiais para o sistema..."
+                          value={formData.system_prompt}
+                          onChange={(e) => handleInputChange('system_prompt', e.target.value)}
+                        />
+                      </div>
+
+                      <Grid cols={1} responsive={{ md: 2 }} gap="md">
+                        <Input
+                          label="Grupo de Orquestração (Opcional)"
+                          placeholder="ex: deployment-batch-1"
+                          value={formData.orchestration_group}
+                          onChange={(e) => handleInputChange('orchestration_group', e.target.value)}
+                          helperText="Agrupe tasks relacionadas"
+                          fullWidth
+                        />
+
+                        <Input
+                          type="number"
+                          label="Delay após Dependências (s)"
+                          placeholder="0"
+                          value={formData.wait_after_dependencies || ''}
+                          onChange={(e) => handleInputChange('wait_after_dependencies', e.target.value ? Number(e.target.value) : undefined)}
+                          helperText="Tempo de espera em segundos"
+                          fullWidth
+                        />
+                      </Grid>
+                    </Stack>
+                  )}
+
+                  {/* Form Actions */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setFormData({
+                          identifier: '',
+                          execution_prompt: '',
+                          working_directory: './',
+                          model: 'sonnet',
+                          system_prompt: '',
+                          depends_on: [],
+                          wait_after_dependencies: undefined,
+                          orchestration_group: ''
+                        });
+                        setSelectedTemplate(null);
+                        setErrors({});
+                      }}
+                    >
+                      Limpar
+                    </Button>
+                    <Button
+                      type="submit"
+                      loading={loading}
+                      disabled={loading}
+                    >
+                      {loading ? 'Criando...' : 'Criar Task'}
+                    </Button>
+                  </div>
+                </Stack>
+              </form>
+            </CardBody>
+          </Card>
+        </GridItem>
+      </Grid>
+    </PageLayout>
+  );
+}

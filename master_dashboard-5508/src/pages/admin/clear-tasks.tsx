@@ -1,593 +1,351 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Trash2, 
-  Filter, 
-  CheckSquare, 
-  Square, 
-  AlertTriangle, 
-  Clock,
-  CheckCircle,
-  XCircle,
-  RotateCcw,
-  Eye,
-  Calendar
-} from 'lucide-react'
-import BulkActionsBar from '@/components/admin/BulkActionsBar'
-import AdminLayout from '@/components/admin/AdminLayout'
-import toast from 'react-hot-toast'
-import Head from 'next/head'
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '../../components/layout/AdminLayout';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Card, CardHeader, CardBody } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Alert } from '../../components/ui/Alert';
+import { Grid } from '../../components/ui/Grid';
+import { Stack } from '../../components/ui/Stack';
+import { Skeleton } from '../../components/ui/Skeleton';
 
-interface Task {
-  id: string
-  identifier: string
-  status: 'completed' | 'failed' | 'running' | 'pending'
-  created_at: string
-  finished_at?: string
-  execution_prompt: string
-  model: string
-  working_directory: string
-  dependencies?: string[]
+interface TaskStats {
+  total: number;
+  completed: number;
+  failed: number;
+  toBeCleared: number;
 }
 
-const statusConfig = {
-  completed: {
-    icon: CheckCircle,
-    color: 'text-green-500',
-    bg: 'bg-green-100 dark:bg-green-900',
-    label: 'Completada'
-  },
-  failed: {
-    icon: XCircle,
-    color: 'text-red-500',
-    bg: 'bg-red-100 dark:bg-red-900',
-    label: 'Falhou'
-  },
-  running: {
-    icon: Clock,
-    color: 'text-blue-500',
-    bg: 'bg-blue-100 dark:bg-blue-900',
-    label: 'Em execução'
-  },
-  pending: {
-    icon: Clock,
-    color: 'text-yellow-500',
-    bg: 'bg-yellow-100 dark:bg-yellow-900',
-    label: 'Pendente'
-  }
+interface ClearResult {
+  success: boolean;
+  cleared: number;
+  message: string;
 }
 
-export default function ClearTasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>([])
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [dateFilter, setDateFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [clearing, setClearing] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [recentlyClearedTasks, setRecentlyClearedTasks] = useState<Task[]>([])
-  const [undoTimeLeft, setUndoTimeLeft] = useState(0)
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    failed: 0,
-    selected: 0
-  })
+const ClearTasksPage: React.FC = () => {
+  const [stats, setStats] = useState<TaskStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<ClearResult | null>(null);
 
-  // Carregar tarefas
-  useEffect(() => {
-    loadTasks()
-  }, [])
-
-  // Timer para undo
-  useEffect(() => {
-    if (undoTimeLeft > 0) {
-      const timer = setTimeout(() => setUndoTimeLeft(undoTimeLeft - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (recentlyClearedTasks.length > 0) {
-      setRecentlyClearedTasks([])
-    }
-  }, [undoTimeLeft, recentlyClearedTasks.length])
-
-  // Filtrar tarefas
-  useEffect(() => {
-    let filtered = tasks
-
-    // Filtro por status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(task => task.status === statusFilter)
-    }
-
-    // Filtro por data
-    if (dateFilter !== 'all') {
-      const now = new Date()
-      const cutoff = new Date()
+  // Simular carregamento de estatísticas
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      switch (dateFilter) {
-        case '1d':
-          cutoff.setDate(now.getDate() - 1)
-          break
-        case '7d':
-          cutoff.setDate(now.getDate() - 7)
-          break
-        case '30d':
-          cutoff.setDate(now.getDate() - 30)
-          break
-      }
+      // Dados mockados
+      const mockStats: TaskStats = {
+        total: 127,
+        completed: 89,
+        failed: 12,
+        toBeCleared: 101 // completed + failed
+      };
       
-      filtered = filtered.filter(task => new Date(task.created_at) >= cutoff)
+      setStats(mockStats);
+    } catch (err) {
+      setError('Erro ao carregar estatísticas das tasks');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Filtro por busca
-    if (searchQuery) {
-      filtered = filtered.filter(task => 
-        task.identifier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.execution_prompt.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    setFilteredTasks(filtered)
+  // Simular operação de limpeza
+  const handleClearTasks = async () => {
+    if (!stats) return;
     
-    // Atualizar estatísticas
-    setStats({
-      total: filtered.length,
-      completed: filtered.filter(t => t.status === 'completed').length,
-      failed: filtered.filter(t => t.status === 'failed').length,
-      selected: Array.from(selectedTasks).filter(id => 
-        filtered.some(task => task.id === id)
-      ).length
-    })
-  }, [tasks, statusFilter, dateFilter, searchQuery, selectedTasks])
-
-  const loadTasks = async () => {
     try {
-      setLoading(true)
-      // Simular carregamento de tarefas da API
-      // Em produção, substituir por chamada real à API
-      const mockTasks: Task[] = [
-        {
-          id: '1',
-          identifier: 'analyze_code',
-          status: 'completed',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          finished_at: new Date(Date.now() - 86300000).toISOString(),
-          execution_prompt: 'Analisar qualidade do código Python',
-          model: 'opus',
-          working_directory: '/app/src'
-        },
-        {
-          id: '2',
-          identifier: 'fix_bugs',
-          status: 'failed',
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          finished_at: new Date(Date.now() - 3500000).toISOString(),
-          execution_prompt: 'Corrigir bugs encontrados na análise',
-          model: 'sonnet',
-          working_directory: '/app/src'
-        },
-        {
-          id: '3',
-          identifier: 'run_tests',
-          status: 'completed',
-          created_at: new Date(Date.now() - 7200000).toISOString(),
-          finished_at: new Date(Date.now() - 7000000).toISOString(),
-          execution_prompt: 'Executar suite completa de testes',
-          model: 'haiku',
-          working_directory: '/app'
-        }
-      ]
-      setTasks(mockTasks)
-    } catch (error) {
-      toast.error('Erro ao carregar tarefas')
-      console.error(error)
+      setClearing(true);
+      setError(null);
+      
+      // Simular delay de operação
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simular resultado
+      const cleared = stats.toBeCleared;
+      const result: ClearResult = {
+        success: true,
+        cleared,
+        message: `${cleared} tasks foram removidas com sucesso do sistema`
+      };
+      
+      setLastResult(result);
+      
+      // Atualizar stats após limpeza
+      setStats({
+        ...stats,
+        completed: 0,
+        failed: 0,
+        toBeCleared: 0,
+        total: stats.total - cleared
+      });
+      
+    } catch (err) {
+      const result: ClearResult = {
+        success: false,
+        cleared: 0,
+        message: 'Erro ao limpar tasks. Tente novamente.'
+      };
+      setLastResult(result);
     } finally {
-      setLoading(false)
+      setClearing(false);
     }
-  }
+  };
 
-  const handleSelectTask = (taskId: string) => {
-    const newSelected = new Set(selectedTasks)
-    if (newSelected.has(taskId)) {
-      newSelected.delete(taskId)
-    } else {
-      newSelected.add(taskId)
-    }
-    setSelectedTasks(newSelected)
-  }
+  useEffect(() => {
+    loadStats();
+  }, []);
 
-  const handleSelectAll = () => {
-    const clearableTaskIds = filteredTasks
-      .filter(task => task.status === 'completed' || task.status === 'failed')
-      .map(task => task.id)
-    setSelectedTasks(new Set(clearableTaskIds))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTasks(new Set())
-  }
-
-  const isAllSelected = () => {
-    const clearableTaskIds = filteredTasks
-      .filter(task => task.status === 'completed' || task.status === 'failed')
-      .map(task => task.id)
-    return clearableTaskIds.length > 0 && 
-           clearableTaskIds.every(id => selectedTasks.has(id))
-  }
-
-  const handleClearSelected = () => {
-    if (selectedTasks.size === 0) return
-    setShowConfirmation(true)
-  }
-
-  const confirmClear = async () => {
-    try {
-      setClearing(true)
-      
-      // Simular chamada de API
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const clearedTasks = tasks.filter(task => selectedTasks.has(task.id))
-      setRecentlyClearedTasks(clearedTasks)
-      setTasks(tasks.filter(task => !selectedTasks.has(task.id)))
-      setSelectedTasks(new Set())
-      setShowConfirmation(false)
-      setUndoTimeLeft(30)
-      
-      toast.success(`${clearedTasks.length} tarefa(s) removida(s) com sucesso`)
-    } catch (error) {
-      toast.error('Erro ao limpar tarefas')
-      console.error(error)
-    } finally {
-      setClearing(false)
-    }
-  }
-
-  const handleUndo = () => {
-    setTasks(prev => [...prev, ...recentlyClearedTasks])
-    setRecentlyClearedTasks([])
-    setUndoTimeLeft(0)
-    toast.success('Tarefas restauradas com sucesso')
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR')
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
-            <div className="h-64 bg-gray-300 dark:bg-gray-700 rounded"></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const hasTasksToClear = stats && stats.toBeCleared > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Head>
-        <title>Limpeza de Tarefas - Dashboard Admin</title>
-      </Head>
-
-      <div className="p-4">
-        <div className="w-full max-w-md mx-auto">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+    <AdminLayout>
+      <PageHeader
+        title="Clear Tasks"
+        description="Remover tasks concluídas e com falha do sistema para otimizar performance"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={loadStats}
+            loading={loading}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            }
           >
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Limpeza de Tarefas
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Gerencie e limpe tarefas completadas ou falhadas do sistema
-            </p>
-          </motion.div>
+            Atualizar
+          </Button>
+        }
+      />
 
-          {/* Stats Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 gap-3 mb-6"
+      <Stack spacing="lg">
+        {/* Alertas */}
+        {error && (
+          <Alert variant="danger" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {lastResult && (
+          <Alert 
+            variant={lastResult.success ? 'success' : 'danger'}
+            onClose={() => setLastResult(null)}
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
-              <div className="flex flex-col items-center">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mb-2">
-                  <Trash2 className="w-4 h-4 text-blue-500" />
-                </div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Total</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-              </div>
-            </div>
+            {lastResult.message}
+          </Alert>
+        )}
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
-              <div className="flex flex-col items-center">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg mb-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                </div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Completadas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
-              <div className="flex flex-col items-center">
-                <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg mb-2">
-                  <XCircle className="w-4 h-4 text-red-500" />
-                </div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Falhadas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.failed}</p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
-              <div className="flex flex-col items-center">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mb-2">
-                  <CheckSquare className="w-4 h-4 text-purple-500" />
-                </div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Selecionadas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.selected}</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Filtros */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow mb-4"
-          >
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Status
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="all">Todos</option>
-                  <option value="completed">Completadas</option>
-                  <option value="failed">Falhadas</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Período
-                </label>
-                <select
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="all">Todos</option>
-                  <option value="1d">Último dia</option>
-                  <option value="7d">Última semana</option>
-                  <option value="30d">Último mês</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Buscar
-                </label>
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 text-sm"
-                />
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Bulk Actions Bar */}
-          <BulkActionsBar
-            selectedCount={stats.selected}
-            onClearSelected={handleClearSelected}
-            onSelectAll={handleSelectAll}
-            onDeselectAll={handleDeselectAll}
-            isAllSelected={isAllSelected()}
-            onUndo={undoTimeLeft > 0 ? handleUndo : undefined}
-            showUndo={undoTimeLeft > 0}
-          />
-
-          {/* Undo Banner */}
-          <AnimatePresence>
-            {undoTimeLeft > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -50 }}
-                className="mb-6 p-4 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded-lg"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                    <span className="text-green-800 dark:text-green-200">
-                      {recentlyClearedTasks.length} tarefa(s) removida(s). 
-                      Você pode desfazer esta ação em {undoTimeLeft} segundos.
-                    </span>
+        {/* Estatísticas das Tasks */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Estatísticas das Tasks
+          </h2>
+          
+          {loading ? (
+            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Card key={i}>
+                  <CardBody>
+                    <Skeleton variant="text" className="mb-2" />
+                    <Skeleton variant="text" className="mb-4 w-16 h-8" />
+                    <Skeleton variant="text" className="w-24" />
+                  </CardBody>
+                </Card>
+              ))}
+            </Grid>
+          ) : stats ? (
+            <Grid cols="1" responsive={{ md: 2, lg: 4 }} gap="lg">
+              <Card>
+                <CardBody>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Total de Tasks
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {stats.total}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        No sistema
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleUndo}
-                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                  >
-                    Desfazer
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </CardBody>
+              </Card>
 
-          {/* Tasks List */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow"
-          >
-            <div className="p-4">
-              <div className="space-y-4">
-                {filteredTasks.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Trash2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Nenhuma tarefa encontrada com os filtros aplicados
-                    </p>
+              <Card>
+                <CardBody>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Tasks Concluídas
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {stats.completed}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Prontas para limpeza
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-100 dark:bg-green-900 rounded-full">
+                      <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                ) : (
-                  filteredTasks.map((task, index) => {
-                    const StatusIcon = statusConfig[task.status].icon
-                    const isSelectable = task.status === 'completed' || task.status === 'failed'
-                    
-                    return (
-                      <motion.div
-                        key={task.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={`
-                          border rounded-lg p-4 transition-all duration-200 hover:shadow-md
-                          ${selectedTasks.has(task.id) 
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                            : 'border-gray-200 dark:border-gray-700'
-                          }
-                          ${!isSelectable ? 'opacity-60' : ''}
-                        `}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-3">
-                            {isSelectable && (
-                              <button
-                                onClick={() => handleSelectTask(task.id)}
-                                className="mt-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                              >
-                                {selectedTasks.has(task.id) ? (
-                                  <CheckSquare className="w-5 h-5 text-blue-500" />
-                                ) : (
-                                  <Square className="w-5 h-5 text-gray-400" />
-                                )}
-                              </button>
-                            )}
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <div className={`
-                                  p-1 rounded-full ${statusConfig[task.status].bg}
-                                `}>
-                                  <StatusIcon className={`w-4 h-4 ${statusConfig[task.status].color}`} />
-                                </div>
-                                <span className="font-semibold text-gray-900 dark:text-white">
-                                  {task.identifier}
-                                </span>
-                                <span className={`
-                                  px-2 py-1 text-xs font-medium rounded-full
-                                  ${statusConfig[task.status].bg} ${statusConfig[task.status].color}
-                                `}>
-                                  {statusConfig[task.status].label}
-                                </span>
-                              </div>
-                              
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                {task.execution_prompt}
-                              </p>
-                              
-                              <div className="flex flex-col space-y-1 text-xs text-gray-500">
-                                <span>Modelo: {task.model}</span>
-                                <span>Criado: {formatDate(task.created_at)}</span>
-                                {task.finished_at && (
-                                  <span>Finalizado: {formatDate(task.finished_at)}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                            <Eye className="w-4 h-4 text-gray-400" />
-                          </button>
-                        </div>
-                      </motion.div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          </motion.div>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardBody>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Tasks com Falha
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {stats.failed}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Precisam ser limpas
+                      </p>
+                    </div>
+                    <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full">
+                      <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardBody>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Total a Limpar
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {stats.toBeCleared}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Concluídas + Falhas
+                      </p>
+                    </div>
+                    <div className="p-3 bg-orange-100 dark:bg-orange-900 rounded-full">
+                      <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </Grid>
+          ) : null}
         </div>
 
-        {/* Confirmation Modal */}
-        <AnimatePresence>
-          {showConfirmation && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowConfirmation(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center mb-4">
-                  <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full mr-4">
-                    <AlertTriangle className="w-6 h-6 text-red-500" />
+        {/* Ação de Limpeza */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Operação de Limpeza
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <Stack spacing="md">
+              {hasTasksToClear ? (
+                <>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div className="ml-3">
+                        <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                          Atenção - Operação Irreversível
+                        </h4>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
+                          Esta operação irá remover permanentemente <strong>{stats?.toBeCleared}</strong> tasks do sistema. 
+                          Esta ação não pode ser desfeita. Tasks que estão sendo executadas não serão afetadas.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Confirmar Limpeza
+
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                      Tasks que serão removidas:
+                    </h4>
+                    <Stack direction="horizontal" spacing="sm" wrap>
+                      <Badge variant="success">
+                        {stats?.completed} Concluídas
+                      </Badge>
+                      <Badge variant="danger">
+                        {stats?.failed} com Falha
+                      </Badge>
+                    </Stack>
+                  </div>
+
+                  <Stack direction="horizontal" spacing="sm" align="center">
+                    <Button
+                      variant="danger"
+                      onClick={handleClearTasks}
+                      loading={clearing}
+                      leftIcon={
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      }
+                    >
+                      {clearing ? 'Limpando Tasks...' : `Limpar ${stats?.toBeCleared} Tasks`}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => window.history.back()}
+                    >
+                      Cancelar
+                    </Button>
+                  </Stack>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="p-4 bg-green-100 dark:bg-green-900 rounded-full inline-flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Sistema Limpo
                   </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Não há tasks concluídas ou com falha para serem removidas no momento.
+                  </p>
+                  <div className="mt-4">
+                    <Button
+                      variant="secondary"
+                      onClick={() => window.location.href = '/admin'}
+                    >
+                      Voltar ao Dashboard
+                    </Button>
+                  </div>
                 </div>
-                
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Tem certeza de que deseja remover {selectedTasks.size} tarefa(s)? 
-                  Esta ação pode ser desfeita nos próximos 30 segundos.
-                </p>
-                
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowConfirmation(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={confirmClear}
-                    disabled={clearing}
-                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    {clearing ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
-                        />
-                        Limpando...
-                      </>
-                    ) : (
-                      'Confirmar'
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
+              )}
+            </Stack>
+          </CardBody>
+        </Card>
+      </Stack>
+    </AdminLayout>
+  );
+};
+
+export default ClearTasksPage;

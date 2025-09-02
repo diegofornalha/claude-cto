@@ -1,582 +1,334 @@
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Activity, 
-  Server, 
-  Clock, 
-  Wifi, 
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Pause,
-  Play,
-  RotateCcw,
-  Zap,
-  Database,
-  Globe
-} from 'lucide-react'
-import HealthMetricsFixed from '@/components/admin/HealthMetricsFixed'
-import SystemGauges from '@/components/admin/SystemGauges'
-import AdminLayout from '@/components/admin/AdminLayout'
-import Head from 'next/head'
-import toast from 'react-hot-toast'
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '../../components/layout/AdminLayout';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Card, CardHeader, CardBody } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Alert } from '../../components/ui/Alert';
+import { Grid } from '../../components/ui/Grid';
+import { Stack } from '../../components/ui/Stack';
+import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
 
-interface SystemStatus {
-  status: 'healthy' | 'warning' | 'critical' | 'offline'
-  uptime: string
-  lastCheck: Date
-  version: string
+interface HealthMetric {
+  id: string;
+  name: string;
+  status: 'healthy' | 'warning' | 'critical';
+  value: string;
+  description: string;
+  lastCheck: string;
 }
 
-interface EndpointStatus {
-  endpoint: string
-  status: 'healthy' | 'warning' | 'critical' | 'offline'
-  responseTime: number
-  lastCheck: Date
-  statusCode?: number
-  errorMessage?: string
+interface SystemHealthData {
+  overall: 'healthy' | 'warning' | 'critical';
+  metrics: HealthMetric[];
+  lastUpdated: string;
+  uptime: string;
 }
 
-interface AlertItem {
-  id: string
-  type: 'error' | 'warning' | 'info'
-  title: string
-  message: string
-  timestamp: Date
-  resolved: boolean
-}
+const SystemHealthPage: React.FC = () => {
+  const [healthData, setHealthData] = useState<SystemHealthData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-const statusConfig = {
-  healthy: {
-    icon: CheckCircle,
-    color: 'text-green-500',
-    bg: 'bg-green-100 dark:bg-green-900',
-    label: 'Saudável',
-    borderColor: 'border-green-500'
-  },
-  warning: {
-    icon: AlertTriangle,
-    color: 'text-yellow-500',
-    bg: 'bg-yellow-100 dark:bg-yellow-900',
-    label: 'Atenção',
-    borderColor: 'border-yellow-500'
-  },
-  critical: {
-    icon: XCircle,
-    color: 'text-red-500',
-    bg: 'bg-red-100 dark:bg-red-900',
-    label: 'Crítico',
-    borderColor: 'border-red-500'
-  },
-  offline: {
-    icon: XCircle,
-    color: 'text-gray-500',
-    bg: 'bg-gray-100 dark:bg-gray-900',
-    label: 'Offline',
-    borderColor: 'border-gray-500'
-  }
-}
-
-export default function HealthPage() {
-  const [mounted, setMounted] = useState(false)
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
-    status: 'healthy',
-    uptime: '2d 14h 32m',
-    lastCheck: new Date(),
-    version: '1.2.3'
-  })
-
-  const [endpoints, setEndpoints] = useState<EndpointStatus[]>([
-    {
-      endpoint: '/api/health',
-      status: 'healthy',
-      responseTime: 45,
-      lastCheck: new Date(),
-      statusCode: 200
-    },
-    {
-      endpoint: '/api/tasks',
-      status: 'healthy',
-      responseTime: 120,
-      lastCheck: new Date(),
-      statusCode: 200
-    },
-    {
-      endpoint: '/api/submit',
-      status: 'warning',
-      responseTime: 850,
-      lastCheck: new Date(),
-      statusCode: 200
-    },
-    {
-      endpoint: '/api/clear',
-      status: 'healthy',
-      responseTime: 67,
-      lastCheck: new Date(),
-      statusCode: 200
-    }
-  ])
-
-  const [systemMetrics, setSystemMetrics] = useState({
-    cpu: 15.8,
-    memory: 68.2,
-    disk: 45.1,
-    temperature: 62
-  })
-
-  const [alerts, setAlerts] = useState<AlertItem[]>([
-    {
-      id: '1',
-      type: 'warning',
-      title: 'Alta latência detectada',
-      message: 'Endpoint /api/submit apresentando latência elevada (>800ms)',
-      timestamp: new Date(Date.now() - 300000),
-      resolved: false
-    },
-    {
-      id: '2',
-      type: 'info',
-      title: 'Sistema reiniciado',
-      message: 'Reinicialização programada completada com sucesso',
-      timestamp: new Date(Date.now() - 7200000),
-      resolved: true
-    }
-  ])
-
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const [refreshInterval, setRefreshInterval] = useState(5000)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Mount state to prevent hydration errors
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Auto-refresh logic
-  useEffect(() => {
-    if (autoRefresh) {
-      intervalRef.current = setInterval(() => {
-        refreshHealthData()
-      }, refreshInterval)
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [autoRefresh, refreshInterval])
-
-  const refreshHealthData = async () => {
+  // Simular carregamento de dados de saúde
+  const loadHealthData = async () => {
     try {
-      // Simular atualização dos dados
-      setSystemMetrics(prev => ({
-        cpu: Math.max(5, Math.min(95, prev.cpu + (Math.random() - 0.5) * 10)),
-        memory: Math.max(30, Math.min(90, prev.memory + (Math.random() - 0.5) * 5)),
-        disk: prev.disk,
-        temperature: Math.max(40, Math.min(85, prev.temperature + (Math.random() - 0.5) * 5))
-      }))
-
-      setEndpoints(prev => prev.map(endpoint => ({
-        ...endpoint,
-        responseTime: Math.max(20, Math.min(1000, endpoint.responseTime + (Math.random() - 0.5) * 100)),
-        lastCheck: new Date(),
-        status: endpoint.responseTime > 500 ? 'warning' : 'healthy'
-      })))
-
-      setSystemStatus(prev => ({
-        ...prev,
-        lastCheck: new Date()
-      }))
-
-    } catch (error) {
-      console.error('Erro ao atualizar dados de saúde:', error)
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      // Dados mockados
+      const mockHealthData: SystemHealthData = {
+        overall: 'healthy',
+        lastUpdated: new Date().toISOString(),
+        uptime: '2d 14h 23m',
+        metrics: [
+          {
+            id: 'cpu',
+            name: 'Uso de CPU',
+            status: 'healthy',
+            value: '23%',
+            description: 'Utilização média da CPU nas últimas 5 minutos',
+            lastCheck: new Date(Date.now() - 30000).toISOString()
+          },
+          {
+            id: 'memory',
+            name: 'Uso de Memória',
+            status: 'warning',
+            value: '76%',
+            description: 'Utilização de memória RAM do sistema',
+            lastCheck: new Date(Date.now() - 30000).toISOString()
+          },
+          {
+            id: 'disk',
+            name: 'Espaço em Disco',
+            status: 'healthy',
+            value: '45%',
+            description: 'Utilização de espaço em disco principal',
+            lastCheck: new Date(Date.now() - 30000).toISOString()
+          },
+          {
+            id: 'api',
+            name: 'API Response',
+            status: 'healthy',
+            value: '120ms',
+            description: 'Tempo médio de resposta da API',
+            lastCheck: new Date(Date.now() - 15000).toISOString()
+          },
+          {
+            id: 'database',
+            name: 'Conexão do Banco',
+            status: 'healthy',
+            value: 'Conectado',
+            description: 'Status da conexão com o banco de dados',
+            lastCheck: new Date(Date.now() - 10000).toISOString()
+          },
+          {
+            id: 'tasks',
+            name: 'Processamento de Tasks',
+            status: 'critical',
+            value: 'Queue cheia',
+            description: '3 tasks pendentes há mais de 1 hora',
+            lastCheck: new Date(Date.now() - 5000).toISOString()
+          }
+        ]
+      };
+      
+      setHealthData(mockHealthData);
+    } catch (err) {
+      setError('Erro ao carregar dados de saúde do sistema');
     }
-  }
+  };
 
-  const handleRefreshToggle = () => {
-    setAutoRefresh(!autoRefresh)
-    toast.success(autoRefresh ? 'Auto-refresh pausado' : 'Auto-refresh ativado')
-  }
-
-  const handleManualRefresh = () => {
-    refreshHealthData()
-    toast.success('Dados atualizados')
-  }
-
-  const resolveAlert = (alertId: string) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === alertId ? { ...alert, resolved: true } : alert
-    ))
-    toast.success('Alerta marcado como resolvido')
-  }
-
-  const getOverallStatus = (): 'healthy' | 'warning' | 'critical' | 'offline' => {
-    const criticalMetrics = systemMetrics.cpu > 90 || systemMetrics.memory > 90 || systemMetrics.temperature > 80
-    const warningMetrics = systemMetrics.cpu > 70 || systemMetrics.memory > 80 || systemMetrics.temperature > 70
-    const criticalEndpoints = endpoints.some(ep => ep.status === 'critical')
-    const warningEndpoints = endpoints.some(ep => ep.status === 'warning')
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      await loadHealthData();
+      setLoading(false);
+    };
     
-    if (criticalMetrics || criticalEndpoints) return 'critical'
-    if (warningMetrics || warningEndpoints) return 'warning'
-    return 'healthy'
-  }
-
-  const overallStatus = getOverallStatus()
-  const StatusIcon = statusConfig[overallStatus].icon
-
-  const formatUptime = (uptime: string) => {
-    return uptime
-  }
-
-  const formatLastCheck = (date: Date) => {
-    if (!mounted) return 'Carregando...'
-    const now = new Date()
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    load();
     
-    if (diffInSeconds < 60) return 'agora mesmo'
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m atrás`
-    return `${Math.floor(diffInSeconds / 3600)}h atrás`
-  }
+    // Auto-refresh a cada 30 segundos
+    const interval = setInterval(() => {
+      if (!loading) {
+        loadHealthData();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadHealthData();
+    setIsRefreshing(false);
+  };
+
+  const getStatusBadgeProps = (status: HealthMetric['status']) => {
+    switch (status) {
+      case 'healthy':
+        return { variant: 'success' as const, text: 'Saudável' };
+      case 'warning':
+        return { variant: 'warning' as const, text: 'Atenção' };
+      case 'critical':
+        return { variant: 'danger' as const, text: 'Crítico' };
+      default:
+        return { variant: 'default' as const, text: 'Desconhecido' };
+    }
+  };
+
+  const getStatusIcon = (status: HealthMetric['status']) => {
+    switch (status) {
+      case 'healthy':
+        return (
+          <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'warning':
+        return (
+          <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'critical':
+        return (
+          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const formatRelativeTime = (isoString: string) => {
+    const now = new Date();
+    const time = new Date(isoString);
+    const diffMs = now.getTime() - time.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    
+    if (diffSecs < 60) return `${diffSecs}s atrás`;
+    if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m atrás`;
+    if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)}h atrás`;
+    return `${Math.floor(diffSecs / 86400)}d atrás`;
+  };
 
   return (
     <AdminLayout>
-      <Head>
-        <title>Saúde do Sistema - Dashboard Admin</title>
-      </Head>
-
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+      <PageHeader
+        title="System Health"
+        description="Monitoramento da saúde e performance do sistema em tempo real"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={handleRefresh}
+            loading={isRefreshing}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            }
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
-                  <Activity className="w-8 h-8 mr-3 text-blue-500" />
-                  Saúde do Sistema
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Monitoramento em tempo real da saúde e performance da API
-                </p>
-              </div>
+            Atualizar
+          </Button>
+        }
+      />
+
+      {/* Alertas */}
+      {error && (
+        <Alert variant="danger" className="mb-6" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <Stack spacing="lg">
+        {/* Status Geral */}
+        {loading ? (
+          <Card>
+            <CardHeader>
+              <Skeleton variant="text" width="200px" className="mb-2" />
+            </CardHeader>
+            <CardBody>
+              <Stack direction="horizontal" spacing="lg" align="center" justify="between" className="mb-4">
+                <Skeleton variant="rectangular" width="100px" height="30px" />
+                <Skeleton variant="text" width="150px" />
+              </Stack>
+              <Skeleton variant="text" width="200px" />
+            </CardBody>
+          </Card>
+        ) : healthData ? (
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Status Geral do Sistema
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <Stack direction="horizontal" spacing="lg" align="center" justify="between" className="mb-4">
+                <div className="flex items-center gap-3">
+                  <Badge {...getStatusBadgeProps(healthData.overall)}>
+                    {getStatusBadgeProps(healthData.overall).text}
+                  </Badge>
+                  {getStatusIcon(healthData.overall)}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Uptime: <span className="font-mono">{healthData.uptime}</span>
+                </div>
+              </Stack>
               
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow">
-                  <div className={`w-2 h-2 rounded-full ${
-                    autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                  }`}></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {autoRefresh ? `Auto-refresh (${refreshInterval/1000}s)` : 'Manual'}
-                  </span>
-                </div>
-                
-                <button
-                  onClick={handleRefreshToggle}
-                  className={`p-2 rounded-lg transition-colors ${
-                    autoRefresh 
-                      ? 'bg-red-100 text-red-500 hover:bg-red-200' 
-                      : 'bg-green-100 text-green-500 hover:bg-green-200'
-                  }`}
-                >
-                  {autoRefresh ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                </button>
-                
-                <button
-                  onClick={handleManualRefresh}
-                  className="p-2 bg-blue-100 text-blue-500 rounded-lg hover:bg-blue-200 transition-colors"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                </button>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Última atualização: {formatRelativeTime(healthData.lastUpdated)}
               </div>
-            </div>
-          </motion.div>
+            </CardBody>
+          </Card>
+        ) : null}
 
-          {/* System Overview Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
-          >
-            {/* Overall Status */}
-            <div className={`
-              bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border-l-4
-              ${statusConfig[overallStatus].borderColor}
-            `}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Status Geral</p>
-                  <div className="flex items-center mt-2">
-                    <StatusIcon className={`w-5 h-5 mr-2 ${statusConfig[overallStatus].color}`} />
-                    <span className="text-lg font-bold text-gray-900 dark:text-white">
-                      {statusConfig[overallStatus].label}
-                    </span>
-                  </div>
-                </div>
-                <div className={`p-3 rounded-full ${statusConfig[overallStatus].bg}`}>
-                  <Server className={`w-6 h-6 ${statusConfig[overallStatus].color}`} />
-                </div>
-              </div>
-            </div>
-
-            {/* Uptime */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                    {formatUptime(systemStatus.uptime)}
-                  </p>
-                </div>
-                <div className="p-3 bg-green-100 dark:bg-green-900 rounded-full">
-                  <Clock className="w-6 h-6 text-green-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Response Time */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Resp. Média</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                    {Math.round(endpoints.reduce((acc, ep) => acc + ep.responseTime, 0) / endpoints.length)}ms
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
-                  <Zap className="w-6 h-6 text-blue-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Active Alerts */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Alertas Ativos</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                    {alerts.filter(alert => !alert.resolved).length}
-                  </p>
-                </div>
-                <div className="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-full">
-                  <AlertTriangle className="w-6 h-6 text-yellow-500" />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* System Gauges */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-8"
-          >
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
-                <Database className="w-5 h-5 mr-2 text-purple-500" />
-                Métricas do Sistema
-              </h3>
-              <SystemGauges
-                cpu={systemMetrics.cpu}
-                memory={systemMetrics.memory}
-                disk={systemMetrics.disk}
-                temperature={systemMetrics.temperature}
-              />
-            </div>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Endpoints Status */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Globe className="w-5 h-5 mr-2 text-green-500" />
-                  Status dos Endpoints
-                </h3>
-                <span className="text-sm text-gray-500">
-                  Última verificação: {mounted ? formatLastCheck(systemStatus.lastCheck) : '...'}
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {endpoints.map((endpoint, index) => {
-                  const EndpointIcon = statusConfig[endpoint.status].icon
-                  
-                  return (
-                    <motion.div
-                      key={endpoint.endpoint}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`
-                        flex items-center justify-between p-4 border rounded-lg transition-all duration-200
-                        ${statusConfig[endpoint.status].bg} ${statusConfig[endpoint.status].borderColor}
-                      `}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <EndpointIcon className={`w-5 h-5 ${statusConfig[endpoint.status].color}`} />
-                        <div>
-                          <p className="font-mono text-sm font-medium text-gray-900 dark:text-white">
-                            {endpoint.endpoint}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Verificado {mounted ? formatLastCheck(endpoint.lastCheck) : '...'}
-                          </p>
-                        </div>
+        {/* Métricas Detalhadas */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Métricas Detalhadas
+          </h2>
+          
+          {loading ? (
+            <Grid cols="1" responsive={{ md: 2, lg: 3 }} gap="lg">
+              {Array.from({ length: 6 }, (_, i) => (
+                <Card key={i}>
+                  <CardBody>
+                    <Skeleton variant="text" className="mb-2" />
+                    <Skeleton variant="text" className="mb-4 w-3/4" />
+                    <Skeleton variant="rectangular" height="2rem" />
+                  </CardBody>
+                </Card>
+              ))}
+            </Grid>
+          ) : healthData ? (
+            <Grid cols="1" responsive={{ md: 2, lg: 3 }} gap="lg">
+              {healthData.metrics.map((metric) => (
+                <Card key={metric.id}>
+                  <CardBody>
+                    <Stack spacing="sm">
+                      <Stack direction="horizontal" spacing="sm" align="center" justify="between">
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                          {metric.name}
+                        </h4>
+                        {getStatusIcon(metric.status)}
+                      </Stack>
+                      
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {metric.value}
                       </div>
-
-                      <div className="flex items-center space-x-4 text-sm">
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {endpoint.responseTime}ms
-                          </p>
-                          <p className={`text-xs ${statusConfig[endpoint.status].color}`}>
-                            {endpoint.statusCode ? `${endpoint.statusCode}` : 'N/A'}
-                          </p>
-                        </div>
-                        
-                        <div className={`
-                          px-3 py-1 rounded-full text-xs font-medium
-                          ${statusConfig[endpoint.status].bg} ${statusConfig[endpoint.status].color}
-                        `}>
-                          {statusConfig[endpoint.status].label}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-            </motion.div>
-
-            {/* Alerts */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
-                <AlertTriangle className="w-5 h-5 mr-2 text-yellow-500" />
-                Alertas Recentes
-              </h3>
-
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {alerts.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>Nenhum alerta ativo</p>
-                  </div>
-                ) : (
-                  alerts.map((alert, index) => (
-                    <motion.div
-                      key={alert.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={`
-                        p-3 rounded-lg border-l-4 transition-all duration-200
-                        ${alert.resolved ? 'opacity-60' : ''}
-                        ${alert.type === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 
-                          alert.type === 'warning' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 
-                          'border-blue-500 bg-blue-50 dark:bg-blue-900/20'}
-                      `}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`
-                            font-medium text-sm
-                            ${alert.type === 'error' ? 'text-red-800 dark:text-red-200' :
-                              alert.type === 'warning' ? 'text-yellow-800 dark:text-yellow-200' :
-                              'text-blue-800 dark:text-blue-200'}
-                          `}>
-                            {alert.title}
-                          </h4>
-                          <p className={`
-                            text-xs mt-1
-                            ${alert.type === 'error' ? 'text-red-600 dark:text-red-300' :
-                              alert.type === 'warning' ? 'text-yellow-600 dark:text-yellow-300' :
-                              'text-blue-600 dark:text-blue-300'}
-                          `}>
-                            {alert.message}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            {mounted ? alert.timestamp.toLocaleString('pt-BR') : '...'}
-                          </p>
-                        </div>
-                        
-                        {!alert.resolved && (
-                          <button
-                            onClick={() => resolveAlert(alert.id)}
-                            className={`
-                              ml-2 px-2 py-1 text-xs rounded transition-colors
-                              ${alert.type === 'error' ? 'bg-red-500 hover:bg-red-600' :
-                                alert.type === 'warning' ? 'bg-yellow-500 hover:bg-yellow-600' :
-                                'bg-blue-500 hover:bg-blue-600'}
-                              text-white
-                            `}
-                          >
-                            Resolver
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Health Metrics Charts */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <HealthMetricsFixed refreshInterval={refreshInterval} />
-          </motion.div>
-
-          {/* System Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8 bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-              <Server className="w-5 h-5 mr-2 text-gray-500" />
-              Informações do Sistema
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 mb-1">Versão</p>
-                <p className="font-mono text-gray-900 dark:text-white">{systemStatus.version}</p>
-              </div>
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 mb-1">Ambiente</p>
-                <p className="font-mono text-gray-900 dark:text-white">Production</p>
-              </div>
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 mb-1">Região</p>
-                <p className="font-mono text-gray-900 dark:text-white">us-east-1</p>
-              </div>
-            </div>
-          </motion.div>
+                      
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {metric.description}
+                      </p>
+                      
+                      <Stack direction="horizontal" spacing="sm" align="center" justify="between">
+                        <Badge {...getStatusBadgeProps(metric.status)} size="sm">
+                          {getStatusBadgeProps(metric.status).text}
+                        </Badge>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatRelativeTime(metric.lastCheck)}
+                        </span>
+                      </Stack>
+                    </Stack>
+                  </CardBody>
+                </Card>
+              ))}
+            </Grid>
+          ) : null}
         </div>
-      </div>
+
+        {/* Alertas de Problemas */}
+        {healthData && healthData.metrics.some(m => m.status === 'critical' || m.status === 'warning') && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Problemas Detectados
+            </h2>
+            
+            <Stack spacing="sm">
+              {healthData.metrics
+                .filter(m => m.status === 'critical' || m.status === 'warning')
+                .map((metric) => (
+                  <Alert
+                    key={metric.id}
+                    variant={metric.status === 'critical' ? 'danger' : 'warning'}
+                  >
+                    <div>
+                      <strong>{metric.name}:</strong> {metric.description}
+                      <div className="text-sm mt-1 opacity-90">
+                        Valor atual: {metric.value} • Verificado {formatRelativeTime(metric.lastCheck)}
+                      </div>
+                    </div>
+                  </Alert>
+                ))}
+            </Stack>
+          </div>
+        )}
+      </Stack>
     </AdminLayout>
-  )
-}
+  );
+};
+
+export default SystemHealthPage;

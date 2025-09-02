@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"pages/index.tsx -> @/components/MetricCard\":{\"id\":\"pages/index.tsx -> @/components/MetricCard\",\"files\":[\"static/chunks/src_components_MetricCard_tsx.js\"]},\"pages/index.tsx -> @/components/QuickActions\":{\"id\":\"pages/index.tsx -> @/components/QuickActions\",\"files\":[\"static/chunks/src_components_QuickActions_tsx.js\"]},\"pages/index.tsx -> @/components/SystemHealth\":{\"id\":\"pages/index.tsx -> @/components/SystemHealth\",\"files\":[\"static/chunks/src_components_SystemHealth_tsx.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"
