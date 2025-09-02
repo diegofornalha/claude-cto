@@ -1,0 +1,164 @@
+{
+  "agent": {
+    "name": "NotificationAgent",
+    "version": "2.0.0",
+    "auto_start": true,
+    "intelligent_routing": true,
+    "log_level": "INFO"
+  },
+  "notifications": {
+    "enabled": true,
+    "max_concurrent": 10,
+    "default_priority": "medium",
+    "default_channel": "terminal",
+    "auto_cleanup": true,
+    "cleanup_interval": 300
+  },
+  "channels": {
+    "terminal": {
+      "enabled": true,
+      "colors": true,
+      "sounds": true,
+      "title_updates": true,
+      "box_style": "unicode",
+      "max_title_length": 60
+    },
+    "desktop": {
+      "enabled": true,
+      "timeout": 8000,
+      "urgency_mapping": {
+        "low": "low",
+        "medium": "normal",
+        "high": "critical",
+        "critical": "critical"
+      }
+    },
+    "webhook": {
+      "enabled": false,
+      "url": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "User-Agent": "NotificationAgent/2.0.0"
+      },
+      "timeout": 5000,
+      "retry_attempts": 3
+    },
+    "slack": {
+      "enabled": false,
+      "webhook_url": "",
+      "channel": "#notifications",
+      "username": "NotificationAgent"
+    },
+    "discord": {
+      "enabled": false,
+      "webhook_url": "",
+      "username": "NotificationAgent",
+      "avatar_url": ""
+    }
+  },
+  "templates": {
+    "task_completed": {
+      "title": "🎉 Task Concluída!",
+      "message": "Task {task_name} foi concluída com sucesso em {duration}",
+      "priority": "medium",
+      "channel": "terminal",
+      "color": "\\033[1;32m",
+      "emoji": "🎉",
+      "sound": true,
+      "duration": 5000
+    },
+    "task_failed": {
+      "title": "❌ Task Falhou!",
+      "message": "Task {task_name} falhou: {error}",
+      "priority": "high",
+      "channel": "terminal",
+      "color": "\\033[1;31m",
+      "emoji": "❌",
+      "sound": true,
+      "duration": 8000
+    },
+    "system_alert": {
+      "title": "🚨 Alerta do Sistema",
+      "message": "{message}",
+      "priority": "critical",
+      "channel": "terminal",
+      "color": "\\033[1;35m",
+      "emoji": "🚨",
+      "sound": true,
+      "duration": 10000
+    },
+    "info": {
+      "title": "ℹ️ Informação",
+      "message": "{message}",
+      "priority": "low",
+      "channel": "terminal",
+      "color": "\\033[1;36m",
+      "emoji": "ℹ️",
+      "sound": false,
+      "duration": 3000
+    },
+    "build_success": {
+      "title": "✅ Build Concluído",
+      "message": "Build do projeto {project_name} foi concluído com sucesso",
+      "priority": "medium",
+      "channel": "terminal",
+      "color": "\\033[1;32m",
+      "emoji": "✅",
+      "sound": true,
+      "duration": 5000
+    },
+    "build_failed": {
+      "title": "💥 Build Falhou",
+      "message": "Build do projeto {project_name} falhou: {error}",
+      "priority": "high",
+      "channel": "terminal",
+      "color": "\\033[1;31m",
+      "emoji": "💥",
+      "sound": true,
+      "duration": 8000
+    },
+    "deployment": {
+      "title": "🚀 Deploy",
+      "message": "Deploy para {environment} {status}: {details}",
+      "priority": "medium",
+      "channel": "terminal",
+      "color": "\\033[1;33m",
+      "emoji": "🚀",
+      "sound": true,
+      "duration": 6000
+    },
+    "security_alert": {
+      "title": "🔒 Alerta de Segurança",
+      "message": "Vulnerabilidade detectada: {vulnerability}",
+      "priority": "critical",
+      "channel": "terminal",
+      "color": "\\033[1;31m",
+      "emoji": "🔒",
+      "sound": true,
+      "duration": 15000
+    }
+  },
+  "analytics": {
+    "enabled": true,
+    "retention_days": 30,
+    "track_engagement": true,
+    "export_format": "json",
+    "auto_export": false,
+    "export_interval": 86400
+  },
+  "monitoring": {
+    "enabled": true,
+    "check_interval": 5,
+    "max_notifications_per_minute": 20,
+    "rate_limiting": true,
+    "duplicate_prevention": true
+  },
+  "customization": {
+    "theme": "default",
+    "language": "pt_BR",
+    "timezone": "America/Sao_Paulo",
+    "date_format": "%d/%m/%Y %H:%M:%S",
+    "show_timestamps": true,
+    "show_priority_indicators": true
+  }
+}

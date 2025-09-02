@@ -82,8 +82,8 @@ class TaskExecutor:
         # Higher intelligence models get longer timeouts for complex reasoning tasks
         timeout_seconds = {
             "haiku": 600,   # 10 minutes - fast model, simple tasks
-            "sonnet": 1800, # 30 minutes - balanced model, standard timeout
-            "opus": 3600,   # 60 minutes - complex model, extended reasoning
+            "sonnet": 900,  # 15 minutes - PATCHED - balanced model, standard timeout
+            "opus": 1800,   # 30 minutes - PATCHED - complex model, extended reasoning
         }.get(model.value, 1800)  # Default to sonnet timeout for unknown models
 
         # Resource initialization: establishes monitoring and logging infrastructure

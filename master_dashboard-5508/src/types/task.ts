@@ -58,8 +58,15 @@ export interface Task {
   status: TaskStatus
   created_at: string
   updated_at: string
+  model?: TaskModel
+  working_directory?: string
+  execution_prompt?: string
+  orchestration_group?: string
+  depends_on?: string[]
+  wait_after_dependencies?: number
   error?: string
   result?: any
+  _metadata?: TaskMetadata
 }
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -75,4 +82,74 @@ export interface ApiHealthData {
   timestamp: string
   server_info?: any
   error?: string
+}
+
+// Novos tipos para filtros e analytics
+export interface TaskFilters {
+  search: string
+  status: TaskStatus[]
+  model: TaskModel[]
+  dateRange: {
+    start: Date | null
+    end: Date | null
+  }
+  complexity: [number, number]
+  orchestrationGroup: string
+  sortBy: 'created_at' | 'task_identifier' | 'status' | 'complexity_score'
+  sortOrder: 'asc' | 'desc'
+}
+
+export interface TaskAnalyticsData {
+  totalTasks: number
+  statusCounts: Record<TaskStatus, number>
+  successRate: number
+  avgExecutionTime: number
+  modelDistribution: Record<TaskModel, number>
+  complexityDistribution: Record<string, number>
+  trendsData: Array<{
+    date: string
+    count: number
+    status?: TaskStatus
+  }>
+  performanceMetrics: {
+    completionRate: number
+    averageTimeToComplete: number
+    failureRate: number
+    queuedTasks: number
+  }
+}
+
+export interface BulkActionResult {
+  success: boolean
+  processed: number
+  failed: number
+  errors?: string[]
+}
+
+export interface ExportFormat {
+  type: 'csv' | 'json' | 'excel'
+  filename: string
+  fields: string[]
+}
+
+export interface TaskPagination {
+  currentPage: number
+  pageSize: number
+  totalPages: number
+  totalItems: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+export interface TaskViewMode {
+  mode: 'grid' | 'cards'
+  density: 'compact' | 'comfortable' | 'spacious'
+}
+
+export interface SavedFilter {
+  id: string
+  name: string
+  filters: TaskFilters
+  createdAt: string
+  isDefault: boolean
 }

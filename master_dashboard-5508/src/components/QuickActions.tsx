@@ -1,34 +1,42 @@
 import { motion } from 'framer-motion'
-import { BarChart3, Users, Settings, LucideIcon } from 'lucide-react'
+import { Activity, Trash2, Database, Settings, LucideIcon } from 'lucide-react'
 import { memo } from 'react'
+import Link from 'next/link'
 
 interface QuickAction {
   title: string
   description: string
   icon: LucideIcon
   color: string
-  onClick?: () => void
+  href: string
+  isAdmin?: boolean
 }
 
 const quickActionsData: QuickAction[] = [
   {
-    title: 'Analytics',
-    description: 'Visualize métricas e insights detalhados do sistema',
-    icon: BarChart3,
+    title: 'Saúde do Sistema',
+    description: 'Monitoramento em tempo real da API e infraestrutura',
+    icon: Activity,
     color: 'bg-blue-100 dark:bg-blue-900',
+    href: '/admin/health',
+    isAdmin: true
   },
   {
-    title: 'Task Manager',
-    description: 'Gerencie e monitore todas as tasks em execução',
-    icon: Users,
+    title: 'Limpeza de Tarefas',
+    description: 'Gerencie e limpe tarefas completadas ou falhadas',
+    icon: Trash2,
     color: 'bg-green-100 dark:bg-green-900',
+    href: '/admin/clear-tasks',
+    isAdmin: true
   },
   {
-    title: 'Configurações',
-    description: 'Configure o sistema e gerencie integrações',
-    icon: Settings,
-    color: 'bg-purple-100 dark:bg-purple-900',
-  },
+    title: 'Deletar Tarefa',
+    description: 'Busque e remova tarefas específicas com segurança',
+    icon: Database,
+    color: 'bg-red-100 dark:bg-red-900',
+    href: '/admin/delete-task',
+    isAdmin: true
+  }
 ]
 
 const QuickActions = memo(() => {
@@ -50,20 +58,35 @@ const QuickActions = memo(() => {
         const Icon = action.icon
         return (
           <motion.div key={action.title} variants={cardVariants}>
-            <div 
-              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 cursor-pointer group"
-              onClick={action.onClick}
-            >
-              <div className="flex items-center mb-4">
-                <div className={`p-2 ${action.color} rounded-lg group-hover:scale-110 transition-transform`}>
-                  <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <Link href={action.href}>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 cursor-pointer group relative">
+                {action.isAdmin && (
+                  <div className="absolute top-3 right-3">
+                    <div className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 text-xs font-medium rounded-full">
+                      Admin
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center mb-4">
+                  <div className={`p-2 ${action.color} rounded-lg group-hover:scale-110 transition-transform`}>
+                    <Icon className={`w-5 h-5 ${
+                      action.title.includes('Saúde') ? 'text-blue-600 dark:text-blue-400' :
+                      action.title.includes('Limpeza') ? 'text-green-600 dark:text-green-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`} />
+                  </div>
+                  <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">{action.title}</h3>
                 </div>
-                <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">{action.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  {action.description}
+                </p>
+                
+                <div className="mt-4 flex items-center text-sm text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors">
+                  <span>Acessar →</span>
+                </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                {action.description}
-              </p>
-            </div>
+            </Link>
           </motion.div>
         )
       })}

@@ -2,5 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/": "pages/index.js"
+  "/admin/health": "pages/admin/health.js",
+  "/admin": "pages/admin.js",
+  "/admin/clear-tasks": "pages/admin/clear-tasks.js",
+  "/sitemap": "pages/sitemap.js"
 }
