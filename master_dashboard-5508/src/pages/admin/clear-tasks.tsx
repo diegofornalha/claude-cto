@@ -269,13 +269,13 @@ export default function ClearTasksPage() {
   }
 
   return (
-    <AdminLayout>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Head>
         <title>Limpeza de Tarefas - Dashboard Admin</title>
       </Head>
 
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="p-4">
+        <div className="w-full max-w-md mx-auto">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -294,53 +294,45 @@ export default function ClearTasksPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
+            className="grid grid-cols-2 gap-3 mb-6"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <Trash2 className="w-5 h-5 text-blue-500" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+              <div className="flex flex-col items-center">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mb-2">
+                  <Trash2 className="w-4 h-4 text-blue-500" />
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-                </div>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Total</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+              <div className="flex flex-col items-center">
+                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg mb-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completadas</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
-                </div>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Completadas</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                  <XCircle className="w-5 h-5 text-red-500" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+              <div className="flex flex-col items-center">
+                <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg mb-2">
+                  <XCircle className="w-4 h-4 text-red-500" />
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Falhadas</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.failed}</p>
-                </div>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Falhadas</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.failed}</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                  <CheckSquare className="w-5 h-5 text-purple-500" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+              <div className="flex flex-col items-center">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mb-2">
+                  <CheckSquare className="w-4 h-4 text-purple-500" />
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Selecionadas</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.selected}</p>
-                </div>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Selecionadas</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.selected}</p>
               </div>
             </div>
           </motion.div>
@@ -350,9 +342,9 @@ export default function ClearTasksPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow mb-6"
+            className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow mb-4"
           >
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Status
@@ -384,16 +376,16 @@ export default function ClearTasksPage() {
                 </select>
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Buscar
                 </label>
                 <input
                   type="text"
-                  placeholder="Buscar por identificador ou descrição..."
+                  placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 text-sm"
                 />
               </div>
             </div>
@@ -445,7 +437,7 @@ export default function ClearTasksPage() {
             transition={{ delay: 0.2 }}
             className="bg-white dark:bg-gray-800 rounded-lg shadow"
           >
-            <div className="p-6">
+            <div className="p-4">
               <div className="space-y-4">
                 {filteredTasks.length === 0 ? (
                   <div className="text-center py-12">
@@ -511,9 +503,8 @@ export default function ClearTasksPage() {
                                 {task.execution_prompt}
                               </p>
                               
-                              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                              <div className="flex flex-col space-y-1 text-xs text-gray-500">
                                 <span>Modelo: {task.model}</span>
-                                <span>Diretório: {task.working_directory}</span>
                                 <span>Criado: {formatDate(task.created_at)}</span>
                                 {task.finished_at && (
                                   <span>Finalizado: {formatDate(task.finished_at)}</span>
@@ -597,6 +588,6 @@ export default function ClearTasksPage() {
           )}
         </AnimatePresence>
       </div>
-    </AdminLayout>
+    </div>
   )
 }

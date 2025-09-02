@@ -38,10 +38,10 @@ export default function BulkActionsBar({
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 mb-6"
+      className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 mb-4"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col space-y-3">
+        <div className="flex items-center justify-between">
           {showUndo && onUndo ? (
             <motion.button
               initial={{ scale: 0 }}
@@ -53,10 +53,10 @@ export default function BulkActionsBar({
               <span>Desfazer Limpeza</span>
             </motion.button>
           ) : (
-            <>
+            <div className="w-full">
               <button
                 onClick={isAllSelected ? onDeselectAll : onSelectAll}
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="flex items-center justify-center w-full space-x-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
                 disabled={disabled}
               >
                 {isAllSelected ? (
@@ -64,38 +64,36 @@ export default function BulkActionsBar({
                 ) : (
                   <Square className="w-4 h-4" />
                 )}
-                <span>{isAllSelected ? 'Desmarcar Todos' : 'Selecionar Todos'}</span>
+                <span>{isAllSelected ? 'Desmarcar' : 'Selecionar'}</span>
               </button>
               
-              {selectedCount > 0 && (
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {selectedCount} tarefa{selectedCount !== 1 ? 's' : ''} selecionada{selectedCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
-
-        {selectedCount > 0 && !showUndo && (
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleClear}
-              disabled={isLoading || disabled}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                />
-              ) : (
-                <Trash2 className="w-4 h-4" />
-              )}
-              <span>{isLoading ? 'Limpando...' : 'Limpar Selecionadas'}</span>
-            </button>
+        
+        {selectedCount > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              {selectedCount} selecionada{selectedCount !== 1 ? 's' : ''}
+            </span>
+            {!showUndo && (
+              <button
+                onClick={handleClear}
+                disabled={isLoading || disabled}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+              >
+                {isLoading ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-3 h-3 border-2 border-white border-t-transparent rounded-full"
+                  />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+                <span>{isLoading ? 'Limpando...' : 'Limpar'}</span>
+              </button>
+            )}
           </div>
         )}
       </div>

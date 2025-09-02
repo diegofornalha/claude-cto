@@ -918,4 +918,22 @@ export class MCPApiService {
       analytics: mockAnalytics
     }
   }
+
+  // Event listener support for health monitoring
+  private static eventListeners: Array<(event: string, data?: any) => void> = []
+
+  static addEventListener(listener: (event: string, data?: any) => void) {
+    this.eventListeners.push(listener)
+  }
+
+  static removeEventListener(listener: (event: string, data?: any) => void) {
+    const index = this.eventListeners.indexOf(listener)
+    if (index > -1) {
+      this.eventListeners.splice(index, 1)
+    }
+  }
+
+  private static emit(event: string, data?: any) {
+    this.eventListeners.forEach(listener => listener(event, data))
+  }
 }

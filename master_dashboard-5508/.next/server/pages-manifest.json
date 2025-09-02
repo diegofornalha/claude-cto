@@ -4,7 +4,7 @@
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
   "/tasks": "pages/tasks.js",
-  "/tasks/create": "pages/tasks/create.js",
   "/admin/clear-tasks": "pages/admin/clear-tasks.js",
-  "/admin/delete-task": "pages/admin/delete-task.js"
+  "/admin/delete-task": "pages/admin/delete-task.js",
+  "/tasks/create": "pages/tasks/create.js"
 }
