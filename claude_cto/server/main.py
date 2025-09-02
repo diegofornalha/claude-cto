@@ -840,6 +840,106 @@ async def get_notification_config(session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=f"Erro ao obter configuração: {str(e)}")
 
 
+# Endpoints simplificados para configurações de notificação (compatibilidade com frontend)
+@app.get("/api/v1/notifications/settings")
+async def get_notification_settings(session: Session = Depends(get_session)):
+    """
+    Obtém as configurações de notificação para o frontend.
+    """
+    try:
+        # Buscar configuração existente ou retornar padrão
+        config = crud.get_notification_config(session)
+        
+        if config:
+            import json
+            event_types = json.loads(config.event_types) if config.event_types else []
+            
+            # Mapear para o formato esperado pelo frontend
+            return {
+                "enabled": config.enabled,
+                "sound": "task_completed" in event_types,  # Se tem eventos, assume que tem som
+                "desktop": True,  # Sempre true por padrão
+                "email": config.webhook_url is not None,  # Se tem webhook, pode ter email
+                "events": {
+                    "task_completed": "task_completed" in event_types,
+                    "task_failed": "task_failed" in event_types,
+                    "system_alerts": "system_alerts" in event_types or "system_alert" in event_types,
+                }
+            }
+        else:
+            # Retornar configurações padrão
+            return {
+                "enabled": True,
+                "sound": False,
+                "desktop": True,
+                "email": False,
+                "events": {
+                    "task_completed": True,
+                    "task_failed": True,
+                    "system_alerts": True,
+                }
+            }
+    except Exception as e:
+        logger.error(f"Erro ao obter configurações de notificação: {e}", exc_info=True)
+        # Retornar configurações padrão em caso de erro
+        return {
+            "enabled": True,
+            "sound": False,
+            "desktop": True,
+            "email": False,
+            "events": {
+                "task_completed": True,
+                "task_failed": True,
+                "system_alerts": True,
+            }
+        }
+
+
+@app.put("/api/v1/notifications/settings")
+async def update_notification_settings(
+    settings: dict,
+    session: Session = Depends(get_session)
+):
+    """
+    Atualiza as configurações de notificação do frontend.
+    """
+    try:
+        # Mapear configurações do frontend para o modelo interno
+        event_types = []
+        if settings.get("events", {}).get("task_completed"):
+            event_types.append("task_completed")
+        if settings.get("events", {}).get("task_failed"):
+            event_types.append("task_failed")
+        if settings.get("events", {}).get("system_alerts"):
+            event_types.append("system_alerts")
+        
+        # Verificar se já existe uma configuração
+        existing_config = crud.get_notification_config(session)
+        
+        if existing_config:
+            # Atualizar configuração existente
+            import json
+            existing_config.enabled = settings.get("enabled", True)
+            existing_config.event_types = json.dumps(event_types)
+            existing_config.updated_at = datetime.utcnow()
+            session.commit()
+        else:
+            # Criar nova configuração
+            config_data = models.NotificationConfigCreate(
+                enabled=settings.get("enabled", True),
+                webhook_url=None,
+                webhook_type="discord" if settings.get("email") else None,
+                alert_thresholds={},
+                event_types=event_types
+            )
+            crud.create_notification_config(session, config_data)
+        
+        return {"success": True, "message": "Configurações atualizadas com sucesso"}
+    except Exception as e:
+        logger.error(f"Erro ao atualizar configurações de notificação: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar configurações: {str(e)}")
+
+
 @app.get("/api/v1/system/metrics", response_model=models.SystemMetricsResponse)
 async def get_system_metrics(session: Session = Depends(get_session)):
     """

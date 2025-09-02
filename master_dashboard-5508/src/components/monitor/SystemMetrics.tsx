@@ -274,51 +274,6 @@ const SystemMetrics: React.FC<SystemMetricsProps> = ({ className = '' }) => {
             subtitle="Por task executada"
           />
 
-          {/* Uso de CPU */}
-          <MetricCard
-            title="CPU"
-            value={`${stats.cpu_usage.toFixed(1)}%`}
-            icon={Zap}
-            iconColor={stats.cpu_usage > 80 ? 'text-error-600' : stats.cpu_usage > 50 ? 'text-warning-600' : 'text-success-600'}
-            loading={loading}
-            subtitle="Uso do processador"
-          >
-            <div className="mt-2 w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  stats.cpu_usage > 80 
-                    ? 'bg-error-600' 
-                    : stats.cpu_usage > 50 
-                      ? 'bg-warning-600' 
-                      : 'bg-success-600'
-                }`}
-                style={{ width: `${Math.min(stats.cpu_usage, 100)}%` }}
-              />
-            </div>
-          </MetricCard>
-
-          {/* Uso de Memória */}
-          <MetricCard
-            title="Memória"
-            value={`${stats.memory_usage.toFixed(1)}%`}
-            icon={Activity}
-            iconColor={stats.memory_usage > 80 ? 'text-error-600' : stats.memory_usage > 50 ? 'text-warning-600' : 'text-success-600'}
-            loading={loading}
-            subtitle="Uso da RAM"
-          >
-            <div className="mt-2 w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  stats.memory_usage > 80 
-                    ? 'bg-error-600' 
-                    : stats.memory_usage > 50 
-                      ? 'bg-warning-600' 
-                      : 'bg-success-600'
-                }`}
-                style={{ width: `${Math.min(stats.memory_usage, 100)}%` }}
-              />
-            </div>
-          </MetricCard>
         </MetricsGrid>
 
         {/* Indicador de conexão e atualização */}
