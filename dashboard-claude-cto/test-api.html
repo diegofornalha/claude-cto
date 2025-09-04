@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Direct</title>
+</head>
+<body>
+    <h1>Teste Direto da API</h1>
+    <div id="result">Carregando...</div>
+    
+    <script>
+        // Importar o serviço McpApi
+        const API_BASE_URL = 'http://localhost:8888/api/v1';
+        
+        async function testApi() {
+            try {
+                // Teste 1: Fetch direto
+                console.log('Teste 1: Fetch direto...');
+                const response = await fetch(`${API_BASE_URL}/tasks`);
+                const data = await response.json();
+                console.log('Resposta bruta:', data);
+                
+                // Teste 2: Mapeamento
+                console.log('Teste 2: Mapeando dados...');
+                const tasks = data.map((task) => ({
+                    id: String(task.id),
+                    identifier: `task_${task.id}`,
+                    status: task.status,
+                    created_at: task.created_at || new Date().toISOString(),
+                    updated_at: task.ended_at || task.started_at || task.created_at || new Date().toISOString(),
+                    execution_prompt: task.last_action_cache || task.final_summary || 'Task sem descrição',
+                    model: task.model || 'opus',
+                    working_directory: task.working_directory || '.',
+                    orchestration_group: task.orchestration_id || undefined,
+                    execution_time: task.ended_at && task.started_at 
+                        ? new Date(task.ended_at).getTime() - new Date(task.started_at).getTime()
+                        : undefined,
+                }));
+                
+                console.log('Tasks mapeadas:', tasks);
+                
+                document.getElementById('result').innerHTML = `
+                    <h2>✅ Sucesso!</h2>
+                    <p>Total de tasks: ${tasks.length}</p>
+                    <h3>Primeiras 3 tasks:</h3>
+                    <pre>${JSON.stringify(tasks.slice(0, 3), null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('result').innerHTML = `
+                    <h2>❌ Erro</h2>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        
+        testApi();
+    </script>
+</body>
+</html>
