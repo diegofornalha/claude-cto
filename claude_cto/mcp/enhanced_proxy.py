@@ -562,6 +562,286 @@ def create_enhanced_proxy_server(api_url: Optional[str] = None) -> FastMCP:
             except Exception as e:
                 return {"error": f"Failed to delete task: {str(e)}"}
 
+    @mcp.tool()
+    async def fix_stuck_tasks(
+        max_age_hours: float = 1.0,
+        auto_restart_server: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Plano de contingência automático para corrigir tasks travadas.
+        
+        Detecta e corrige automaticamente tasks que estão rodando há muito tempo,
+        marcando-as como failed e opcionalmente reiniciando o servidor.
+        
+        Args:
+            max_age_hours: Tasks rodando há mais que este tempo são consideradas travadas (padrão: 1 hora)
+            auto_restart_server: Se True, reinicia o servidor CTO quando encontrar muitas tasks travadas
+            
+        Returns:
+            Relatório com tasks corrigidas e ações tomadas
+        """
+        import sqlite3
+        from pathlib import Path
+        from datetime import datetime, timedelta
+        
+        # Localiza o banco de dados real do CTO
+        db_path = Path.home() / ".claude-cto" / "tasks.db"
+        
+        if not db_path.exists():
+            return {
+                "error": "Database not found",
+                "path": str(db_path),
+                "hint": "CTO server may not have been initialized"
+            }
+        
+        try:
+            # Conecta ao banco
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Busca tasks travadas
+            threshold = datetime.utcnow() - timedelta(hours=max_age_hours)
+            
+            # Primeiro verifica quantas estão travadas
+            cursor.execute("""
+                SELECT id, started_at, execution_prompt 
+                FROM tasks 
+                WHERE status = 'running' 
+                AND started_at < ?
+            """, (threshold.isoformat(),))
+            
+            stuck_tasks = cursor.fetchall()
+            stuck_count = len(stuck_tasks)
+            
+            # Busca total de tasks running
+            cursor.execute("SELECT COUNT(*) FROM tasks WHERE status = 'running'")
+            total_running = cursor.fetchone()[0]
+            
+            if stuck_count == 0:
+                conn.close()
+                return {
+                    "status": "healthy",
+                    "running_tasks": total_running,
+                    "stuck_tasks": 0,
+                    "message": "Nenhuma task travada encontrada"
+                }
+            
+            # Corrige tasks travadas
+            cursor.execute("""
+                UPDATE tasks 
+                SET status = 'failed',
+                    ended_at = ?,
+                    error_message = 'Task killed by contingency plan - exceeded timeout'
+                WHERE status = 'running' 
+                AND started_at < ?
+            """, (datetime.utcnow().isoformat(), threshold.isoformat()))
+            
+            affected = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            result = {
+                "status": "fixed",
+                "total_running_before": total_running,
+                "stuck_tasks_fixed": affected,
+                "threshold_hours": max_age_hours,
+                "message": f"Corrigidas {affected} tasks travadas"
+            }
+            
+            # Reinicia servidor se necessário
+            if auto_restart_server and (stuck_count > 5 or total_running > 10):
+                result["server_restart"] = "initiated"
+                result["restart_reason"] = f"{stuck_count} stuck tasks detected"
+                
+                # Envia comando de restart via API
+                async with httpx.AsyncClient() as client:
+                    try:
+                        response = await client.post(f"{api_url}/api/v1/admin/restart", timeout=5.0)
+                        if response.status_code == 200:
+                            result["server_restart"] = "success"
+                    except:
+                        result["server_restart"] = "failed"
+            
+            return result
+            
+        except Exception as e:
+            return {
+                "error": f"Failed to fix stuck tasks: {str(e)}",
+                "database": str(db_path)
+            }
+
+    @mcp.tool()
+    async def monitor_cto_health() -> Dict[str, Any]:
+        """
+        Monitora a saúde do sistema CTO em tempo real.
+        
+        Verifica:
+        - Status do servidor API
+        - Tasks em execução
+        - Tasks travadas
+        - Uso de memória e recursos
+        - Logs de erro recentes
+        
+        Returns:
+            Relatório completo de saúde do sistema
+        """
+        import sqlite3
+        from pathlib import Path
+        from datetime import datetime, timedelta
+        import psutil
+        import os
+        
+        health_report = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "api_status": "unknown",
+            "database_status": "unknown",
+            "tasks": {},
+            "resources": {},
+            "warnings": []
+        }
+        
+        # 1. Verifica API
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{api_url}/health", timeout=2.0)
+                health_report["api_status"] = "online" if response.status_code == 200 else "offline"
+        except:
+            health_report["api_status"] = "offline"
+            health_report["warnings"].append("API server not responding")
+        
+        # 2. Verifica banco de dados
+        db_path = Path.home() / ".claude-cto" / "tasks.db"
+        
+        if db_path.exists():
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # Estatísticas de tasks
+                cursor.execute("""
+                    SELECT status, COUNT(*) 
+                    FROM tasks 
+                    GROUP BY status
+                """)
+                
+                task_stats = dict(cursor.fetchall())
+                health_report["tasks"] = task_stats
+                health_report["database_status"] = "online"
+                
+                # Verifica tasks travadas (rodando há mais de 1 hora)
+                threshold = datetime.utcnow() - timedelta(hours=1)
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM tasks 
+                    WHERE status = 'running' 
+                    AND started_at < ?
+                """, (threshold.isoformat(),))
+                
+                stuck_count = cursor.fetchone()[0]
+                if stuck_count > 0:
+                    health_report["warnings"].append(f"{stuck_count} tasks stuck for >1 hour")
+                    health_report["tasks"]["stuck"] = stuck_count
+                
+                conn.close()
+                
+            except Exception as e:
+                health_report["database_status"] = "error"
+                health_report["warnings"].append(f"Database error: {str(e)}")
+        else:
+            health_report["database_status"] = "not_found"
+        
+        # 3. Verifica recursos do sistema
+        try:
+            # Uso de CPU e memória
+            health_report["resources"]["cpu_percent"] = psutil.cpu_percent(interval=1)
+            health_report["resources"]["memory_percent"] = psutil.virtual_memory().percent
+            
+            # Verifica processos do CTO
+            cto_processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    cmdline = ' '.join(proc.info['cmdline'] or [])
+                    if 'claude_cto' in cmdline or 'claude-cto' in cmdline:
+                        cto_processes.append({
+                            'pid': proc.info['pid'],
+                            'name': proc.info['name'],
+                            'memory_mb': proc.memory_info().rss / 1024 / 1024
+                        })
+                except:
+                    continue
+            
+            health_report["resources"]["cto_processes"] = cto_processes
+            
+            if len(cto_processes) == 0:
+                health_report["warnings"].append("No CTO processes found running")
+            
+        except Exception as e:
+            health_report["warnings"].append(f"Resource monitoring error: {str(e)}")
+        
+        # 4. Análise final
+        if len(health_report["warnings"]) == 0:
+            health_report["overall_status"] = "healthy"
+        elif len(health_report["warnings"]) <= 2:
+            health_report["overall_status"] = "degraded"
+        else:
+            health_report["overall_status"] = "critical"
+        
+        return health_report
+
+    @mcp.tool()
+    async def backup_cto_database() -> Dict[str, Any]:
+        """
+        Cria backup do banco de dados do CTO.
+        
+        Útil antes de operações críticas ou para preservar estado.
+        
+        Returns:
+            Informações sobre o backup criado
+        """
+        import shutil
+        from pathlib import Path
+        from datetime import datetime
+        
+        db_path = Path.home() / ".claude-cto" / "tasks.db"
+        backup_dir = Path.home() / ".claude-cto" / "backups"
+        
+        if not db_path.exists():
+            return {
+                "error": "Database not found",
+                "path": str(db_path)
+            }
+        
+        try:
+            # Cria diretório de backup
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Nome do backup com timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = backup_dir / f"tasks_{timestamp}.db"
+            
+            # Copia o arquivo
+            shutil.copy2(db_path, backup_path)
+            
+            # Verifica tamanho
+            size_mb = backup_path.stat().st_size / 1024 / 1024
+            
+            # Lista backups existentes
+            existing_backups = sorted(backup_dir.glob("tasks_*.db"))
+            
+            return {
+                "status": "success",
+                "backup_path": str(backup_path),
+                "size_mb": round(size_mb, 2),
+                "timestamp": timestamp,
+                "total_backups": len(existing_backups),
+                "message": f"Backup criado com sucesso: {backup_path.name}"
+            }
+            
+        except Exception as e:
+            return {
+                "error": f"Backup failed: {str(e)}"
+            }
+
     return mcp
 
 

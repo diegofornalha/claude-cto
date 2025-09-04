@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "claude-cto-monitor": {
+      "command": "python3",
+      "args": ["mcp_server.py"],
+      "cwd": "/home/suthub/.claude/claude-cto",
+      "env": {
+        "PYTHONPATH": "/home/suthub/.claude/claude-cto"
+      },
+      "description": "Claude CTO Monitor MCP Server",
+      "tools": {
+        "cto_status": "Get current CTO and monitor status",
+        "start_monitor": "Start the infinite task monitor",
+        "stop_monitor": "Stop the infinite task monitor",
+        "get_metrics": "Get detailed metrics and statistics",
+        "get_sessions": "Get list of CTO sessions",
+        "manage_alerts": "Manage alerts and notifications",
+        "execute_task": "Execute a specific CTO task",
+        "get_logs": "Get recent activity logs",
+        "export_data": "Export monitoring data",
+        "open_dashboard": "Open the web dashboard in browser"
+      },
+      "resources": {
+        "cto://config": "Current CTO monitor configuration",
+        "cto://metrics": "Real-time metrics data",
+        "cto://logs": "Recent activity logs",
+        "cto://dashboard": "Web dashboard access information"
+      }
+    }
+  }
+}

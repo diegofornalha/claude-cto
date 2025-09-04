@@ -1,7 +1,0 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/monitor/notifications": "pages/monitor/notifications.js",
-  "/monitor/activities": "pages/monitor/activities.js"
-}

@@ -204,7 +204,7 @@ async def logging_middleware(request: Request, call_next):
 
 # REST API Endpoints
 
-
+# TASKS ENABLED - Restaurado para corrigir erro 404/405
 @app.post("/api/v1/tasks", response_model=models.TaskRead)
 async def create_task(task_in: models.TaskCreate, session: Session = Depends(get_session)):
     """
@@ -357,6 +357,8 @@ async def clear_completed_tasks(session: Session = Depends(get_session)):
 
 # MCP-compatible endpoints (using strict validation)
 
+
+# MCP-compatible endpoints (using strict validation)
 
 @app.post("/api/v1/mcp/tasks", response_model=models.TaskRead)
 async def create_mcp_task(payload: models.MCPCreateTaskPayload, session: Session = Depends(get_session)):
@@ -708,6 +710,230 @@ async def list_orchestrations(
         )
 
     return results
+
+
+@app.delete("/api/v1/orchestrations/{orchestration_id}")
+async def delete_orchestration(orchestration_id: int, session: Session = Depends(get_session)):
+    """
+    Delete an orchestration and all its associated tasks.
+    Only allows deletion of completed, failed, or cancelled orchestrations.
+    """
+    orch = crud.get_orchestration(session, orchestration_id)
+    if not orch:
+        raise HTTPException(status_code=404, detail="Orchestration not found")
+    
+    # Prevent deletion of running orchestrations
+    if orch.status in ["pending", "running"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete orchestration in {orch.status} state. Cancel it first."
+        )
+    
+    # Delete all tasks associated with this orchestration
+    tasks = crud.get_tasks_by_orchestration(session, orchestration_id)
+    for task in tasks:
+        session.delete(task)
+    
+    # Delete the orchestration itself
+    session.delete(orch)
+    session.commit()
+    
+    # Activity logging: track orchestration deletion
+    from .activity_logger import log_activity
+    log_activity(
+        event_type="orchestration_deleted",
+        orchestration_id=orchestration_id,
+        message=f"Orchestration {orchestration_id} deleted with {len(tasks)} tasks"
+    )
+    
+    return {
+        "success": True,
+        "message": f"Orchestration {orchestration_id} and {len(tasks)} associated tasks deleted successfully"
+    }
+
+
+@app.put("/api/v1/orchestrations/{orchestration_id}")
+async def update_orchestration(
+    orchestration_id: int,
+    update_data: dict,
+    session: Session = Depends(get_session)
+):
+    """
+    Update orchestration metadata.
+    Only allows updating certain fields like tags, description, etc.
+    Cannot modify running orchestrations' critical fields.
+    """
+    orch = crud.get_orchestration(session, orchestration_id)
+    if not orch:
+        raise HTTPException(status_code=404, detail="Orchestration not found")
+    
+    # Define which fields can be updated based on status
+    if orch.status in ["pending", "running"]:
+        # Limited updates for active orchestrations
+        allowed_fields = ["tags", "description", "priority"]
+    else:
+        # More fields can be updated for completed orchestrations
+        allowed_fields = ["tags", "description", "notes", "archived"]
+    
+    # Apply updates
+    updated_fields = []
+    for field, value in update_data.items():
+        if field in allowed_fields:
+            if hasattr(orch, field):
+                setattr(orch, field, value)
+                updated_fields.append(field)
+    
+    if not updated_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No valid fields to update. Allowed fields: {allowed_fields}"
+        )
+    
+    # Update the modification timestamp if it exists
+    if hasattr(orch, 'updated_at'):
+        orch.updated_at = datetime.utcnow()
+    
+    session.commit()
+    
+    return {
+        "success": True,
+        "message": f"Orchestration {orchestration_id} updated successfully",
+        "updated_fields": updated_fields,
+        "orchestration": {
+            "id": orch.id,
+            "status": orch.status,
+            "created_at": orch.created_at,
+            "updated_at": getattr(orch, 'updated_at', None)
+        }
+    }
+
+
+class BulkDeleteRequest(BaseModel):
+    orchestration_ids: List[int]
+    force: bool = False
+
+@app.post("/api/v1/orchestrations/bulk-delete")
+async def bulk_delete_orchestrations(
+    request: BulkDeleteRequest,
+    session: Session = Depends(get_session)
+):
+    """
+    Delete multiple orchestrations at once.
+    Set force=true to delete even running orchestrations (will cancel them first).
+    """
+    deleted_count = 0
+    skipped = []
+    errors = []
+    
+    for orch_id in request.orchestration_ids:
+        try:
+            orch = crud.get_orchestration(session, orch_id)
+            if not orch:
+                errors.append({"id": orch_id, "error": "Not found"})
+                continue
+            
+            # Handle running orchestrations
+            if orch.status in ["pending", "running"]:
+                if request.force:
+                    # Cancel before deleting
+                    orch.status = "cancelled"
+                    orch.ended_at = datetime.utcnow()
+                    
+                    # Cancel all pending tasks
+                    tasks = crud.get_tasks_by_orchestration(session, orch_id)
+                    for task in tasks:
+                        if task.status in [models.TaskStatus.PENDING, models.TaskStatus.WAITING]:
+                            task.status = models.TaskStatus.SKIPPED
+                            task.ended_at = datetime.utcnow()
+                else:
+                    skipped.append({"id": orch_id, "status": orch.status})
+                    continue
+            
+            # Delete all tasks
+            tasks = crud.get_tasks_by_orchestration(session, orch_id)
+            for task in tasks:
+                session.delete(task)
+            
+            # Delete orchestration
+            session.delete(orch)
+            deleted_count += 1
+            
+        except Exception as e:
+            errors.append({"id": orch_id, "error": str(e)})
+    
+    session.commit()
+    
+    return {
+        "success": True,
+        "deleted": deleted_count,
+        "skipped": skipped,
+        "errors": errors,
+        "message": f"Deleted {deleted_count} orchestrations"
+    }
+
+
+class CleanupRequest(BaseModel):
+    days_old: int = 7
+    status_filter: Optional[List[str]] = None
+    dry_run: bool = True
+
+@app.post("/api/v1/orchestrations/cleanup")
+async def cleanup_old_orchestrations(
+    request: CleanupRequest,
+    session: Session = Depends(get_session)
+):
+    """
+    Clean up old orchestrations based on age and status.
+    Use dry_run=true to preview what would be deleted.
+    """
+    from datetime import timedelta
+    
+    cutoff_date = datetime.utcnow() - timedelta(days=request.days_old)
+    
+    # Build query
+    orchestrations = session.query(models.OrchestrationDB)
+    orchestrations = orchestrations.filter(models.OrchestrationDB.created_at < cutoff_date)
+    
+    if request.status_filter:
+        orchestrations = orchestrations.filter(models.OrchestrationDB.status.in_(request.status_filter))
+    
+    orchestrations = orchestrations.all()
+    
+    if request.dry_run:
+        # Just return what would be deleted
+        return {
+            "dry_run": True,
+            "would_delete": len(orchestrations),
+            "orchestrations": [
+                {
+                    "id": o.id,
+                    "status": o.status,
+                    "created_at": o.created_at,
+                    "age_days": (datetime.utcnow() - o.created_at).days
+                }
+                for o in orchestrations[:20]  # Limit preview to 20 items
+            ],
+            "message": f"Would delete {len(orchestrations)} orchestrations older than {request.days_old} days"
+        }
+    
+    # Actually delete
+    deleted_count = 0
+    for orch in orchestrations:
+        # Delete tasks first
+        tasks = crud.get_tasks_by_orchestration(session, orch.id)
+        for task in tasks:
+            session.delete(task)
+        
+        session.delete(orch)
+        deleted_count += 1
+    
+    session.commit()
+    
+    return {
+        "success": True,
+        "deleted": deleted_count,
+        "message": f"Deleted {deleted_count} orchestrations older than {request.days_old} days"
+    }
 
 
 # Monitoring Endpoints

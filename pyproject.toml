@@ -43,7 +43,7 @@ psutil = {version = ">=5.9.0", optional = true}
 
 [tool.poetry.extras]
 # For MCP-only users (lightweight)
-mcp = ["fastmcp", "httpx"]
+mcp = ["fastmcp", "httpx", "psutil"]
 
 # For REST API + CLI users (no MCP)
 server = ["fastapi", "uvicorn", "typer", "httpx", "psutil"]

@@ -1,0 +1,60 @@
+{
+  "name": "claude-cto-mcp",
+  "version": "1.0.0",
+  "description": "Claude CTO Monitor with MCP Integration",
+  "main": "mcp_server.py",
+  "type": "module",
+  "scripts": {
+    "mcp": "python3 mcp_server.py",
+    "dashboard": "cd dashboard && python3 backend/server.py",
+    "dev": "concurrently \"npm run mcp\" \"npm run dashboard\"",
+    "install-deps": "pip install mcp flask flask-cors sqlitedict",
+    "test": "python3 -m pytest tests/"
+  },
+  "mcp": {
+    "name": "claude-cto-monitor",
+    "description": "MCP server for Claude CTO monitoring and dashboard",
+    "commands": {
+      "start": "python3 mcp_server.py"
+    },
+    "tools": [
+      "cto_status",
+      "start_monitor",
+      "stop_monitor",
+      "get_metrics",
+      "get_sessions",
+      "manage_alerts",
+      "execute_task",
+      "get_logs",
+      "export_data",
+      "open_dashboard"
+    ],
+    "resources": [
+      "cto://config",
+      "cto://metrics",
+      "cto://logs",
+      "cto://dashboard"
+    ]
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "cto",
+    "monitor",
+    "dashboard",
+    "ai",
+    "automation"
+  ],
+  "author": "Claude CTO Team",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "python-dependencies": [
+    "mcp",
+    "flask",
+    "flask-cors",
+    "sqlitedict",
+    "asyncio"
+  ]
+}
